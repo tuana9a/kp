@@ -112,7 +112,6 @@ class NodeController:
         if not new_id:
             log.error("Can't find new vm id")
             raise CanNotGetNewVmId()
-        log.info("new_id", new_id)
         return new_id
 
     def new_vm_ip(self, ip_pool=[], preserved_ips=[]):
@@ -132,5 +131,4 @@ class NodeController:
         if not new_ip:
             log.error("Can't find new ip")
             raise CanNotGetNewVmIp()
-        log.info("new_ip", new_ip)
         return new_ip

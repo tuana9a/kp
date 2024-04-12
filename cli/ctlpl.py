@@ -26,7 +26,7 @@ class ControlPlaneCmd(Cmd):
 class CreateControlPlaneCmd(Cmd):
 
     def __init__(self) -> None:
-        super().__init__("create")
+        super().__init__("create", aliases=["add"])
 
     def _run(self):
         urllib3.disable_warnings()

@@ -47,7 +47,6 @@ class _KubeadmExecutor():
         join_cmd: List[str] = stdout.split()
         if is_control_plane:
             join_cmd.append("--control-plane")
-        log.info("join_cmd", join_cmd)
         return join_cmd
 
 

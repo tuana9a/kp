@@ -41,11 +41,17 @@ class ControlPlaneService:
 
     def create_control_plane(self,
                              vm_network_name,
-                             control_plane_template_id,
+                             vm_template_id: int,
+                             install_containerd_filepath: str,
+                             install_kube_filepath: str,
+                             containerd_config_filepath: str,
                              pod_cidr,
                              svc_cidr=None,
                              preserved_ips=[],
                              vm_id_range=[0, 9999],
+                             vm_core_count=4,
+                             vm_memory=8192,
+                             vm_disk_size="20G",
                              vm_name_prefix="i-",
                              vm_username="u",
                              vm_password="1",
@@ -54,6 +60,7 @@ class ControlPlaneService:
                              cni_manifest_file=None,
                              control_plane_vm_id=None,
                              load_balancer_vm_id=None,
+                             vm_start_on_boot=1,
                              **kwargs):
         nodectl = self.nodectl
         log = self.log
@@ -76,20 +83,47 @@ class ControlPlaneService:
         new_vm_ip = nodectl.new_vm_ip(ip_pool, preserved_ips)
         new_vm_name = f"{vm_name_prefix}{new_vm_id}"
 
-        nodectl.clone(control_plane_template_id, new_vm_id)
+        log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
+        nodectl.clone(vm_template_id, new_vm_id)
 
         ctlplvmctl = nodectl.ctlplvmctl(new_vm_id)
         ctlplvmctl.update_config(
             name=new_vm_name,
+            cpu="cputype=host",
+            cores=vm_core_count,
+            memory=vm_memory,
+            agent="enabled=1,fstrim_cloned_disks=1",
             ciuser=vm_username,
             cipassword=vm_password,
-            agent="enabled=1,fstrim_cloned_disks=1",
             net0=f"virtio,bridge={vm_network_name}",
             ipconfig0=f"ip={new_vm_ip}/24,gw={network_gw_ip}",
             sshkeys=util.ProxmoxUtil.encode_sshkeys(vm_ssh_keys),
+            onboot=vm_start_on_boot,
         )
+        ctlplvmctl.resize_disk("scsi0", vm_disk_size)
+
         ctlplvmctl.startup()
         ctlplvmctl.wait_for_guest_agent()
+        log.info("started vm", new_vm_id)
+
+        ctlplvmctl.wait_for_cloud_init()
+        log.info("waited for cloud-init", new_vm_id)
+
+        vm_install_containerd_location = "/usr/local/bin/install-containerd.sh"
+        with open(install_containerd_filepath, "r") as f:
+            ctlplvmctl.write_file(vm_install_containerd_location, f.read())
+        ctlplvmctl.exec(f"chmod +x {vm_install_containerd_location}")
+        ctlplvmctl.exec(vm_install_containerd_location)
+
+        with open(containerd_config_filepath) as f:
+            ctlplvmctl.write_file("/etc/containerd/config.toml", f.read())
+        ctlplvmctl.exec("systemctl restart containerd")
+
+        vm_install_kube_location = "/usr/local/bin/install-kube.sh"
+        with open(install_kube_filepath, "r") as f:
+            ctlplvmctl.write_file(vm_install_kube_location, f.read())
+        ctlplvmctl.exec(f"chmod +x {vm_install_kube_location}")
+        ctlplvmctl.exec(vm_install_kube_location)
 
         # SECTION: standalone control plane
         if not is_multiple_control_planes:

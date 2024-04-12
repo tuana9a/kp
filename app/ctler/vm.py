@@ -49,8 +49,10 @@ class VmController:
         log.info(node, vm_id, "exec", pid, "duration", duration, "exitcode",
                  exitcode)
         if stdout:
-            log.info(node, vm_id, "exec", pid, "stdout\n" + str(stdout))
+            log.debug(node, vm_id, "exec", pid, "stdout\n" + str(stdout))
         if stderr:
+            log.debug(node, vm_id, "exec", pid, "stderr\n" + str(stderr))
+        if exitcode:
             log.error(node, vm_id, "exec", pid, "stderr\n" + str(stderr))
         return exitcode, stdout, stderr
 
@@ -72,6 +74,11 @@ class VmController:
             except Exception as err:
                 log.debug(node, vm_id, "guestagent", "WAIT", duration)
         log.info(node, vm_id, "guest_agent", "UP")
+
+    def wait_for_cloud_init(self, timeout=config.TIMEOUT, interval_check=15):
+        return self.exec("cloud-init status --wait",
+                         timeout=timeout,
+                         interval_check=interval_check)
 
     def wait_for_shutdown(self, timeout=config.TIMEOUT, interval_check=15):
         api = self.api

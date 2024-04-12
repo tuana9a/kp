@@ -15,10 +15,11 @@ class ControlPlaneVmController(KubeVmController):
 
     def drain_node(self,
                    node_name: str,
-                   kubeconfig_filepath="/etc/kubernetes/admin.conf"):
+                   kubeconfig_filepath="/etc/kubernetes/admin.conf",
+                   opts=["--ignore-daemonsets", "--delete-emptydir-data"]):
         cmd = [
             "kubectl", f"--kubeconfig={kubeconfig_filepath}", "drain",
-            "--ignore-daemonsets", node_name
+            node_name, *opts
         ]
         # 30 mins should be enough
         return self.exec(cmd, interval_check=5, timeout=30 * 60)
