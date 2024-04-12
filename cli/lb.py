@@ -3,8 +3,8 @@ import urllib3
 from cli.core import Cmd
 from app.config import load_config
 from app.logger import Logger
-from app.ctler.node import NodeController
-from app.svc.lb import LbService
+from app.controller.node import NodeController
+from app.service.lb import LbService
 
 
 class LbCmd(Cmd):

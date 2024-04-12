@@ -1,10 +1,10 @@
 from proxmoxer import ProxmoxAPI
 from app.logger import Logger
-from app.ctler.vm import VmController
-from app.ctler.ctlpl import ControlPlaneVmController
-from app.ctler.worker import WorkerVmController
-from app.ctler.kube import KubeVmController
-from app.ctler.lb import LbVmController
+from app.controller.vm import VmController
+from app.controller.ctlpl import ControlPlaneVmController
+from app.controller.worker import WorkerVmController
+from app.controller.kube import KubeVmController
+from app.controller.lb import LbVmController
 from app.error import *
 from app import util
 

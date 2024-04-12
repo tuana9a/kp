@@ -1,4 +1,4 @@
-from app.ctler.kube import KubeVmController
+from app.controller.kube import KubeVmController
 from proxmoxer import ProxmoxAPI
 from app.logger import Logger
 

@@ -1,29 +1,33 @@
 {
     "proxmox_verify_ssl": false,
     "proxmox_node": "pve",
-    "proxmox_host": "10.14.16.2",
+    "proxmox_host": "<ip,dns>",
     "proxmox_user": "root@pam",
-    "proxmox_password": "",
+    "proxmox_password": "<password>",
     "proxmox_token_name": "test",
-    "proxmox_token_value": "uuid",
-    "control_plane_template_id": 9000,
-    "worker_template_id": 9000,
-    "lb_template_id": 9001,
+    "proxmox_token_value": "<uuid>",
     "vm_id_range": [
         121,
         129
     ],
-    "vm_network_name": "vmbr56",
-    "vm_ssh_keys": "ssh-rsa PUBKEY tuana9a@tuana9a",
     "preserved_ips": [
         "192.168.56.1",
         "192.168.56.2",
         "192.168.56.3"
     ],
-    "control_plane_vm_id": 122,
+    "load_balancer_vm_id": 121,
+    "control_plane_vm_id": 124,
+    "vm_network_name": "vmbr56",
+    "vm_template_id": 22041,
+    "vm_ssh_keys": "ssh-rsa PUBKEY tuana9a@tuana9a",
+    "config_haproxy_filepath": "./examples/config_haproxy.py",
+    "install_kube_filepath": "./examples/install-kube-1.27.sh",
+    "install_kubectl_filepath": "./examples/install-kubectl-1.27.sh",
+    "install_containerd_filepath": "./examples/install-containerd.sh",
+    "containerd_config_filepath": "./examples/containerd/config.toml",
+    "_haproxy_cfg": "./examples/haproxy.cfg",
+    "haproxy_cfg": "/tmp/haproxy-1712892596989808809.cfg",
     "cni_manifest_file": "./examples/kube-flannel.yaml",
     "pod_cidr": "10.244.0.0/16",
-    "svc_cidr": "10.233.0.0/16",
-    "load_balancer_vm_id": 121,
-    "haproxy_cfg": "./examples/haproxy.cfg"
+    "svc_cidr": "10.233.0.0/16"
 }

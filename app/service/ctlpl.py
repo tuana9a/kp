@@ -1,7 +1,7 @@
 import os
 import ipaddress
 
-from app.ctler.node import NodeController
+from app.controller.node import NodeController
 from app.logger import Logger
 from app import util
 from app.error import *
@@ -104,10 +104,7 @@ class ControlPlaneService:
 
         ctlplvmctl.startup()
         ctlplvmctl.wait_for_guest_agent()
-        log.info("started vm", new_vm_id)
-
         ctlplvmctl.wait_for_cloud_init()
-        log.info("waited for cloud-init", new_vm_id)
 
         vm_install_containerd_location = "/usr/local/bin/install-containerd.sh"
         with open(install_containerd_filepath, "r") as f:
@@ -127,7 +124,7 @@ class ControlPlaneService:
 
         # SECTION: standalone control plane
         if not is_multiple_control_planes:
-            exitcode, _, _ = ctlplvmctl.kubeadm().init(
+            exitcode, _, _ = ctlplvmctl.kubeadm.init(
                 control_plane_endpoint=new_vm_ip,
                 pod_cidr=pod_cidr,
                 svc_cidr=svc_cidr)
@@ -158,11 +155,10 @@ class ControlPlaneService:
                 lb_config = lbctl.current_config()
                 lb_ifconfig0 = lb_config.get("ipconfig0", None)
                 if not lb_ifconfig0:
-                    raise Exception(
-                        "can not detect the control_plane_endpoint")
+                    raise Exception("can not detect control_plane_endpoint")
                 vm_ip = util.ProxmoxUtil.extract_ip(lb_ifconfig0)
                 control_plane_endpoint = vm_ip
-            exitcode, _, _ = ctlplvmctl.kubeadm().init(
+            exitcode, _, _ = ctlplvmctl.kubeadm.init(
                 control_plane_endpoint=control_plane_endpoint,
                 pod_cidr=pod_cidr,
                 svc_cidr=svc_cidr)
@@ -181,7 +177,7 @@ class ControlPlaneService:
         ctlplvmctl.ensure_cert_dirs()
         self.copy_kube_certs(control_plane_vm_id, new_vm_id)
         existed_ctlplvmctl = nodectl.ctlplvmctl(control_plane_vm_id)
-        join_cmd = existed_ctlplvmctl.kubeadm().create_join_command(
+        join_cmd = existed_ctlplvmctl.kubeadm.create_join_command(
             is_control_plane=True)
         log.info("join_cmd", " ".join(join_cmd))
         ctlplvmctl.exec(join_cmd, timeout=20 * 60)
@@ -202,7 +198,7 @@ class ControlPlaneService:
         # Remove the control plane with etcd will avoid this error
         # https://serverfault.com/questions/1029654/deleting-a-control-node-from-the-cluster-kills-the-apiserver
         try:
-            ctlplvmctl.kubeadm().reset()
+            ctlplvmctl.kubeadm.reset()
         except Exception as err:
             log.error(err)
 

@@ -1,4 +1,4 @@
-from app.ctler.vm import VmController
+from app.controller.vm import VmController
 from proxmoxer import ProxmoxAPI
 from app.logger import Logger
 

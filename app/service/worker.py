@@ -1,7 +1,7 @@
 import os
 import ipaddress
 
-from app.ctler.node import NodeController
+from app.controller.node import NodeController
 from app.logger import Logger
 from app.error import *
 from app import util
@@ -91,7 +91,7 @@ class WorkerService:
         wkctl.exec(vm_install_kube_location)
 
         ctlplvmctl = nodectl.ctlplvmctl(control_plane_vm_id)
-        join_cmd = ctlplvmctl.kubeadm().create_join_command()
+        join_cmd = ctlplvmctl.kubeadm.create_join_command()
         log.info("join_cmd", join_cmd)
         wkctl.exec(join_cmd)
 

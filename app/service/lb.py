@@ -2,7 +2,7 @@ import os
 import time
 import ipaddress
 
-from app.ctler.node import NodeController
+from app.controller.node import NodeController
 from app.logger import Logger
 from app import util
 
@@ -68,10 +68,7 @@ class LbService:
 
         lbctl.startup()
         lbctl.wait_for_guest_agent()
-        log.info("started vm", new_vm_id)
-
         lbctl.wait_for_cloud_init()
-        log.info("waited for cloud-init", new_vm_id)
 
         lbctl.exec("apt install -y haproxy")
 

@@ -33,7 +33,7 @@ class VmController:
         stderr: str = None
         exitcode: int = None
         while True:
-            log.debug(node, vm_id, "exec", pid, "WAIT", duration)
+            log.info(node, vm_id, "exec", pid, "WAIT", duration)
             time.sleep(interval_check)
             duration += interval_check
             if duration > timeout:
@@ -66,14 +66,14 @@ class VmController:
             time.sleep(interval_check)
             duration += interval_check
             if duration > timeout:
-                log.error(node, vm_id, "guestagent", "TIMEOUT")
+                log.error(node, vm_id, "wait_for_guest_agent", "TIMEOUT")
                 raise TimeoutError()
             try:
                 api.nodes(node).qemu(vm_id).agent.ping.post()
                 break
             except Exception as err:
                 log.debug(node, vm_id, "guestagent", "WAIT", duration)
-        log.info(node, vm_id, "guest_agent", "UP")
+        log.info(node, vm_id, "wait_for_guest_agent", "DONE")
 
     def wait_for_cloud_init(self, timeout=config.TIMEOUT, interval_check=15):
         return self.exec("cloud-init status --wait",
@@ -107,6 +107,7 @@ class VmController:
         node = self.node
         vm_id = self.vm_id
         log = self.log
+        log.info(node, vm_id, "update_config", kwargs)
         r = api.nodes(node).qemu(vm_id).config.put(**kwargs)
         log.debug(node, vm_id, "update_config", r)
         return r
@@ -134,6 +135,7 @@ class VmController:
         node = self.node
         vm_id = self.vm_id
         log = self.log
+        log.info(node, vm_id, "resize_disk", disk, size)
         r = api.nodes(node).qemu(vm_id).resize.put(disk=disk, size=size)
         log.debug(node, vm_id, "resize_disk", r)
         return r

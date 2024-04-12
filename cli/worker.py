@@ -4,8 +4,8 @@ import urllib3
 from cli.core import Cmd
 from app.config import load_config
 from app.logger import Logger
-from app.ctler.node import NodeController
-from app.svc.worker import WorkerService
+from app.controller.node import NodeController
+from app.service.worker import WorkerService
 
 
 class WorkerCmd(Cmd):
@@ -81,6 +81,6 @@ class JoinWorkerCmd(Cmd):
         proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
         nodectl = NodeController(proxmox_client, proxmox_node, log=log)
         ctlctl = nodectl.ctlplvmctl(control_plane_id)
-        join_cmd = ctlctl.kubeadm().create_join_command()
+        join_cmd = ctlctl.kubeadm.create_join_command()
         for id in worker_ids:
             nodectl.wkctl(id).exec(join_cmd)

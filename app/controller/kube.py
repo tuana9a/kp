@@ -1,12 +1,12 @@
 from typing import List
-from app.ctler.vm import VmController
+from app.controller.vm import VmController
 from proxmoxer import ProxmoxAPI
 from app.logger import Logger
 from app import config
 from app.error import *
 
 
-class _KubeadmExecutor():
+class KubeadmExecutor():
 
     def __init__(self, vmctl: VmController) -> None:
         self.vmctl = vmctl
@@ -58,7 +58,4 @@ class KubeVmController(VmController):
                  vm_id: str,
                  log=Logger.DEBUG) -> None:
         super().__init__(api, node, vm_id, log)
-        self._kubeadm = _KubeadmExecutor(self)
-
-    def kubeadm(self):
-        return self._kubeadm
+        self.kubeadm = KubeadmExecutor(self)

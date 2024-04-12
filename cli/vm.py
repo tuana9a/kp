@@ -4,7 +4,7 @@ import urllib3
 from cli.core import Cmd
 from app.config import load_config
 from app.logger import Logger
-from app.ctler.node import NodeController
+from app.controller.node import NodeController
 
 
 class VmCmd(Cmd):

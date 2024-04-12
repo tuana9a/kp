@@ -4,8 +4,8 @@ import urllib3
 from cli.core import Cmd
 from app.config import load_config
 from app.logger import Logger
-from app.ctler.node import NodeController
-from app.svc.ctlpl import ControlPlaneService
+from app.controller.node import NodeController
+from app.service.ctlpl import ControlPlaneService
 from app import util
 
 
@@ -139,7 +139,7 @@ class JoinControlPlaneCmd(Cmd):
         load_balancer_vm_id = cfg["load_balancer_vm_id"]
         lbctl = nodectl.lbctl(load_balancer_vm_id)
         dadctl = nodectl.ctlplvmctl(control_plane_id)
-        join_cmd = dadctl.kubeadm().create_join_command(is_control_plane=True)
+        join_cmd = dadctl.kubeadm.create_join_command(is_control_plane=True)
         for id in control_plane_ids:
             ctlplvmctl = nodectl.ctlplvmctl(id)
             ctlplvmctl.ensure_cert_dirs()

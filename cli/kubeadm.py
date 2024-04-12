@@ -4,7 +4,7 @@ from app import util
 from cli.core import Cmd
 from app.config import load_config
 from app.logger import Logger
-from app.ctler.node import NodeController
+from app.controller.node import NodeController
 
 
 class KubeadmCmd(Cmd):
@@ -37,7 +37,7 @@ class ResetKubeCmd(Cmd):
         proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
         nodectl = NodeController(proxmox_client, proxmox_node, log=log)
         ctl = nodectl.kubeadmctl(vm_id)
-        ctl.kubeadm().reset()
+        ctl.kubeadm.reset()
 
 
 class InitKubeCmd(Cmd):
@@ -75,7 +75,7 @@ class InitKubeCmd(Cmd):
         vm_ip = util.ProxmoxUtil.extract_ip(ifconfig0)
 
         if not is_multiple_control_planes:
-            exitcode, _, _ = ctlplvmctl.kubeadm().init(
+            exitcode, _, _ = ctlplvmctl.kubeadm.init(
                 control_plane_endpoint=vm_ip,
                 pod_cidr=pod_cidr,
                 svc_cidr=svc_cidr)
@@ -106,7 +106,7 @@ class InitKubeCmd(Cmd):
             raise Exception("can not detect the control_plane_endpoint")
         vm_ip = util.ProxmoxUtil.extract_ip(lb_ifconfig0)
         control_plane_endpoint = vm_ip
-        exitcode, _, _ = ctlplvmctl.kubeadm().init(
+        exitcode, _, _ = ctlplvmctl.kubeadm.init(
             control_plane_endpoint=control_plane_endpoint,
             pod_cidr=pod_cidr,
             svc_cidr=svc_cidr)

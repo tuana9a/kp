@@ -23,6 +23,8 @@ iface vmbr56 inet static
 
 # Prefare vm template
 
+Installing `qemu-guest-agent` is required
+
 See [gitlab.com/tuana9a/cloud-img](https://gitlab.com/tuana9a/cloud-img)
 
 # Prepare the config.json
