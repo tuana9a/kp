@@ -112,6 +112,9 @@ class WorkerService:
             try:
                 if drain_first:
                     ctlplctl.drain_node(vm_name)
+            except Exception as err:
+                log.error(err)
+            try:
                 ctlplctl.delete_node(vm_name)
             except Exception as err:
                 log.error(err)
