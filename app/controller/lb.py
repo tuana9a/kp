@@ -19,7 +19,7 @@ class LbVmController(VmController):
             "/etc/haproxy/haproxy.cfg", "backend", backend_name, "add",
             server_name, server_endpoint
         ]
-        return self.exec(cmd)
+        return self.exec(cmd, interval_check=3)
 
     def rm_backend(self, backend_name: str, server_name: str):
         cmd = [

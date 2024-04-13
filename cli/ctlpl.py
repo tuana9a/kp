@@ -7,6 +7,7 @@ from app.logger import Logger
 from app.controller.node import NodeController
 from app.service.ctlpl import ControlPlaneService
 from app import util
+from app import config
 
 
 class ControlPlaneCmd(Cmd):
@@ -149,10 +150,7 @@ class JoinControlPlaneCmd(Cmd):
             if not ifconfig0:
                 raise Exception("can not detect the vm ip")
             vm_ip = util.ProxmoxUtil.extract_ip(ifconfig0)
-            exitcode, _, stderr = lbctl.add_backend("control-plane", id,
-                                                    f"{vm_ip}:6443")
-            if exitcode != 0:
-                log.error(stderr)
-                raise Exception("some thing wrong with add_backend")
+            backend_name = config.HAPROXY_BACKEND_NAME
+            lbctl.add_backend(backend_name, id, f"{vm_ip}:6443")
             lbctl.reload_haproxy()
             ctlplvmctl.exec(join_cmd)

@@ -35,7 +35,7 @@ class KubeadmExecutor():
             self,
             cmd=["kubeadm", "token", "create", "--print-join-command"],
             is_control_plane=False,
-            timeout=config.TIMEOUT,
+            timeout=config.TIMEOUT_IN_SECONDS,
             interval_check=3):
         vmctl = self.vmctl
         log = vmctl.log

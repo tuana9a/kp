@@ -19,15 +19,18 @@ class VmController:
         self.vm_id = vm_id
         self.log = log
 
-    def exec(self, cmd: List[str], timeout=config.TIMEOUT, interval_check=10):
+    def exec(self,
+             cmd: List[str],
+             timeout=config.TIMEOUT_IN_SECONDS,
+             interval_check=10):
         api = self.api
         node = self.node
         vm_id = self.vm_id
         log = self.log
         duration = 0
         r = api.nodes(node).qemu(vm_id).agent.exec.post(command=cmd)
-        log.info(node, vm_id, "exec", cmd, r)
         pid = r["pid"]
+        log.info(node, vm_id, "exec", pid, cmd)
         exited = 0
         stdout: str = None
         stderr: str = None
@@ -56,7 +59,9 @@ class VmController:
             log.error(node, vm_id, "exec", pid, "stderr\n" + str(stderr))
         return exitcode, stdout, stderr
 
-    def wait_for_guest_agent(self, timeout=config.TIMEOUT, interval_check=15):
+    def wait_for_guest_agent(self,
+                             timeout=config.TIMEOUT_IN_SECONDS,
+                             interval_check=15):
         api = self.api
         node = self.node
         vm_id = self.vm_id
@@ -72,15 +77,19 @@ class VmController:
                 api.nodes(node).qemu(vm_id).agent.ping.post()
                 break
             except Exception as err:
-                log.debug(node, vm_id, "guestagent", "WAIT", duration)
+                log.info(node, vm_id, "wait_for_guest_agent", "WAIT", duration)
         log.info(node, vm_id, "wait_for_guest_agent", "DONE")
 
-    def wait_for_cloud_init(self, timeout=config.TIMEOUT, interval_check=15):
+    def wait_for_cloud_init(self,
+                            timeout=config.TIMEOUT_IN_SECONDS,
+                            interval_check=15):
         return self.exec("cloud-init status --wait",
                          timeout=timeout,
                          interval_check=interval_check)
 
-    def wait_for_shutdown(self, timeout=config.TIMEOUT, interval_check=15):
+    def wait_for_shutdown(self,
+                          timeout=config.TIMEOUT_IN_SECONDS,
+                          interval_check=15):
         api = self.api
         node = self.node
         vm_id = self.vm_id
@@ -88,11 +97,11 @@ class VmController:
         status = None
         duration = 0
         while True:
-            log.debug(node, vm_id, "shutdown", "WAIT", duration)
+            log.info(node, vm_id, "wait_for_shutdown", "WAIT", duration)
             time.sleep(interval_check)
             duration += interval_check
             if duration > timeout:
-                log.error(node, vm_id, "shutdown", "TIMEOUT")
+                log.error(node, vm_id, "wait_for_shutdown", "TIMEOUT")
                 raise TimeoutError()
             try:
                 r = api.nodes(node).qemu(vm_id).status.current.get()
@@ -107,7 +116,8 @@ class VmController:
         node = self.node
         vm_id = self.vm_id
         log = self.log
-        log.info(node, vm_id, "update_config", kwargs)
+        log.info(node, vm_id, "update_config")
+        log.debug(node, vm_id, "update_config", kwargs)
         r = api.nodes(node).qemu(vm_id).config.put(**kwargs)
         log.debug(node, vm_id, "update_config", r)
         return r
@@ -178,7 +188,7 @@ class VmController:
         log = self.log
         r = api.nodes(node).qemu(vm_id).agent("file-write").post(
             content=content, file=filepath)
-        log.debug(node, vm_id, "write_file", filepath, "\n", content)
+        log.debug(node, vm_id, "write_file", filepath, "\n" + content)
         return r
 
     def delete(self):

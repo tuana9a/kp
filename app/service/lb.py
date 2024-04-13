@@ -5,6 +5,7 @@ import ipaddress
 from app.controller.node import NodeController
 from app.logger import Logger
 from app import util
+from app import config
 
 
 class LbService:
@@ -21,7 +22,7 @@ class LbService:
                   haproxy_cfg: str,
                   install_kubectl_filepath: str = None,
                   preserved_ips=[],
-                  vm_id_range=[0, 9999],
+                  vm_id_range=config.PROXMOX_VM_ID_RANGE,
                   vm_core_count=2,
                   vm_memory=4096,
                   vm_disk_size="20G",
@@ -38,13 +39,14 @@ class LbService:
         network_gw_ip = str(network_interface.ip) or r["address"]
         vm_network = network_interface.network
         ip_pool = []
-        for ip in vm_network.hosts():
-            ip_pool.append(str(ip))
+        for vmip in vm_network.hosts():
+            ip_pool.append(str(vmip))
         preserved_ips.append(network_gw_ip)
         log.debug("preserved_ips", preserved_ips)
 
-        new_vm_id = nodectl.new_vm_id(vm_id_range)
-        new_vm_ip = nodectl.new_vm_ip(ip_pool, preserved_ips)
+        vm_list = nodectl.list_vm(vm_id_range)
+        new_vm_id = nodectl.new_vm_id(vm_list, vm_id_range)
+        new_vm_ip = nodectl.new_vm_ip(vm_list, ip_pool, preserved_ips)
         new_vm_name = f"{vm_name_prefix}{new_vm_id}"
 
         log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
@@ -63,6 +65,7 @@ class LbService:
             net0=f"virtio,bridge={vm_network_name}",
             ipconfig0=f"ip={new_vm_ip}/24,gw={network_gw_ip}",
             onboot=vm_start_on_boot,
+            tags=";".join([config.Tag.lb, config.Tag.kp]),
         )
         lbctl.resize_disk("scsi0", vm_disk_size)
 
@@ -83,6 +86,26 @@ class LbService:
         vm_haproxy_cfg_path = "/etc/haproxy/haproxy.cfg"
         with open(haproxy_cfg, "r", encoding="utf8") as f:
             lbctl.write_file(vm_haproxy_cfg_path, f.read())
+            lbctl.reload_haproxy()
+
+        ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+        if len(ctlpl_vm_list):
+            log.info("ctlpl_vm_list", "DETECTED")
+            backends = []
+            for ctlpl_vm in ctlpl_vm_list:
+                vmid = ctlpl_vm["vmid"]
+                ctlplvmctl = nodectl.ctlplvmctl(vmid)
+                current_config = ctlplvmctl.current_config()
+                ifconfig0 = current_config.get("ipconfig0", None)
+                if ifconfig0:
+                    vmip = util.ProxmoxUtil.extract_ip(ifconfig0)
+                    backends.append({"vmid": vmid, "vmip": vmip})
+            log.info("add_backend", backends)
+            for backend in backends:
+                vmid = backend["vmid"]
+                vmip = backend["vmip"]
+                backend_name = config.HAPROXY_BACKEND_NAME
+                lbctl.add_backend(backend_name, vmid, f"{vmip}:6443")
             lbctl.reload_haproxy()
 
         if install_kubectl_filepath:

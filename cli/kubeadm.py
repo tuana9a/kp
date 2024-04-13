@@ -5,6 +5,7 @@ from cli.core import Cmd
 from app.config import load_config
 from app.logger import Logger
 from app.controller.node import NodeController
+from app import config
 
 
 class KubeadmCmd(Cmd):
@@ -93,11 +94,8 @@ class InitKubeCmd(Cmd):
         # SECTION: stacked control plane
         lbctl = nodectl.lbctl(load_balancer_vm_id)
 
-        exitcode, _, stderr = lbctl.add_backend("control-plane", vm_id,
-                                                f"{vm_ip}:6443")
-        if exitcode != 0:
-            log.error(stderr)
-            raise Exception("some thing wrong with add_backend")
+        backend_name = config.HAPROXY_BACKEND_NAME
+        lbctl.add_backend(backend_name, vm_id, f"{vm_ip}:6443")
         lbctl.reload_haproxy()
 
         lb_config = lbctl.current_config()

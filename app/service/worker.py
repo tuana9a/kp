@@ -1,10 +1,10 @@
-import os
 import ipaddress
 
 from app.controller.node import NodeController
 from app.logger import Logger
 from app.error import *
 from app import util
+from app import config
 
 
 class WorkerService:
@@ -20,9 +20,9 @@ class WorkerService:
                       install_containerd_filepath: str,
                       install_kube_filepath: str,
                       containerd_config_filepath: str,
-                      control_plane_vm_id: int,
+                      existed_control_plane_vm_id: int = None,
                       preserved_ips=[],
-                      vm_id_range=[0, 9999],
+                      vm_id_range=config.PROXMOX_VM_ID_RANGE,
                       vm_core_count=4,
                       vm_memory=8192,
                       vm_disk_size="20G",
@@ -44,8 +44,9 @@ class WorkerService:
         preserved_ips.append(network_gw_ip)
         log.debug("preserved_ips", preserved_ips)
 
-        new_vm_id = nodectl.new_vm_id(vm_id_range)
-        new_vm_ip = nodectl.new_vm_ip(ip_pool, preserved_ips)
+        vm_list = nodectl.list_vm(vm_id_range)
+        new_vm_id = nodectl.new_vm_id(vm_list, vm_id_range)
+        new_vm_ip = nodectl.new_vm_ip(vm_list, ip_pool, preserved_ips)
         new_vm_name = f"{vm_name_prefix}{new_vm_id}"
 
         log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
@@ -64,6 +65,7 @@ class WorkerService:
             net0=f"virtio,bridge={vm_network_name}",
             ipconfig0=f"ip={new_vm_ip}/24,gw={network_gw_ip}",
             onboot=vm_start_on_boot,
+            tags=";".join([config.Tag.wk, config.Tag.kp]),
         )
         wkctl.resize_disk("scsi0", vm_disk_size)
 
@@ -90,7 +92,15 @@ class WorkerService:
         wkctl.exec(f"chmod +x {vm_install_kube_location}")
         wkctl.exec(vm_install_kube_location)
 
-        ctlplvmctl = nodectl.ctlplvmctl(control_plane_vm_id)
+        if not existed_control_plane_vm_id:
+            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+            if len(ctlpl_vm_list):
+                # default to first control plane found
+                existed_control_plane_vm_id = ctlpl_vm_list[0]["vmid"]
+                log.info("existed_control_plane_vm_id",
+                         existed_control_plane_vm_id, "AUTO_DETECT")
+
+        ctlplvmctl = nodectl.ctlplvmctl(existed_control_plane_vm_id)
         join_cmd = ctlplvmctl.kubeadm.create_join_command()
         log.info("join_cmd", join_cmd)
         wkctl.exec(join_cmd)
@@ -99,16 +109,26 @@ class WorkerService:
 
     def delete_worker(self,
                       vm_id,
-                      control_plane_vm_id,
+                      vm_id_range=config.PROXMOX_VM_ID_RANGE,
+                      existed_control_plane_vm_id: int = None,
                       drain_first=True,
                       **kwargs):
         nodectl = self.nodectl
         log = self.log
-        vm = nodectl.find_vm(vm_id)
+        vm_list = nodectl.list_vm(vm_id_range)
+        vm = nodectl.filter_id(vm_list, vm_id)
         vm_name = vm["name"]
 
-        if control_plane_vm_id:
-            ctlplctl = nodectl.ctlplvmctl(control_plane_vm_id)
+        if not existed_control_plane_vm_id:
+            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+            if len(ctlpl_vm_list):
+                # default to first control plane found
+                existed_control_plane_vm_id = ctlpl_vm_list[0]["vmid"]
+                log.info("existed_control_plane_vm_id",
+                         existed_control_plane_vm_id, "AUTO_DETECT")
+
+        if existed_control_plane_vm_id:
+            ctlplctl = nodectl.ctlplvmctl(existed_control_plane_vm_id)
             try:
                 if drain_first:
                     ctlplctl.drain_node(vm_name)

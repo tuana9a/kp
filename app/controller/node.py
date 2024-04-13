@@ -7,6 +7,7 @@ from app.controller.kube import KubeVmController
 from app.controller.lb import LbVmController
 from app.error import *
 from app import util
+from app import config
 
 
 class NodeController:
@@ -68,21 +69,21 @@ class NodeController:
         log.info(node, "clone", old_id, new_id)
         return r
 
-    def list_vm(self):
+    def list_vm(self, id_range=config.PROXMOX_VM_ID_RANGE):
         api = self.api
         node = self.node
         log = self.log
         r = api.nodes(node).qemu.get()
-        vm_list = r
+        vm_list = []
+        for vm in r:
+            vmid = vm["vmid"]
+            if vmid >= id_range[0] and vmid <= id_range[1]:
+                vm_list.append(vm)
         log.debug(node, "list_vm", len(vm_list), vm_list)
         return vm_list
 
-    def find_vm(self, vm_id: int):
-        api = self.api
-        node = self.node
+    def filter_id(self, vm_list: list, vm_id: int):
         log = self.log
-        r = api.nodes(node).qemu.get()
-        vm_list = r
         for x in vm_list:
             id = x["vmid"]
             if str(id) == str(vm_id):
@@ -90,6 +91,21 @@ class NodeController:
                 return x
 
         raise VmNotFoundError(vm_id)
+
+    def filter_tag(self,
+                   vm_list: list,
+                   tag: str,
+                   delimiter=config.PROXMOX_VM_TAG_DELIMITER):
+        log = self.log
+        result = []
+
+        for vm in vm_list:
+            id = vm["vmid"]
+            tags = set(vm.get("tags", "").split(delimiter))
+            if tag in tags:
+                result.append(vm)
+        log.debug("filter_tag", len(result), result)
+        return result
 
     def describe_network(self, network: str):
         api = self.api
@@ -99,11 +115,13 @@ class NodeController:
         log.debug(node, "describe_network", r)
         return r
 
-    def new_vm_id(self, id_range=[0, 9999], preserved_ids=[]):
+    def new_vm_id(self,
+                  vm_list=[],
+                  id_range=config.PROXMOX_VM_ID_RANGE,
+                  preserved_ids=[]):
         log = self.log
         exist_ids = set()
         exist_ids.update(preserved_ids)
-        vm_list = self.list_vm()
         for vm in vm_list:
             id = vm["vmid"]
             exist_ids.add(id)
@@ -114,11 +132,10 @@ class NodeController:
             raise CanNotGetNewVmId()
         return new_id
 
-    def new_vm_ip(self, ip_pool=[], preserved_ips=[]):
+    def new_vm_ip(self, vm_list=[], ip_pool=[], preserved_ips=[]):
         log = self.log
         exist_ips = set()
         exist_ips.update(preserved_ips)
-        vm_list = self.list_vm()
         for vm in vm_list:
             id = vm["vmid"]
             config = self.vmctl(id).current_config()

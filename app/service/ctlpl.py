@@ -5,6 +5,7 @@ from app.controller.node import NodeController
 from app.logger import Logger
 from app import util
 from app.error import *
+from app import config
 
 
 class ControlPlaneService:
@@ -48,7 +49,7 @@ class ControlPlaneService:
                              pod_cidr,
                              svc_cidr=None,
                              preserved_ips=[],
-                             vm_id_range=[0, 9999],
+                             vm_id_range=config.PROXMOX_VM_ID_RANGE,
                              vm_core_count=4,
                              vm_memory=8192,
                              vm_disk_size="20G",
@@ -58,16 +59,12 @@ class ControlPlaneService:
                              vm_ssh_keys=None,
                              apiserver_endpoint=None,
                              cni_manifest_file=None,
-                             control_plane_vm_id=None,
-                             load_balancer_vm_id=None,
+                             existed_ctlpl_vm_id=None,
+                             existed_lb_vm_id=None,
                              vm_start_on_boot=1,
                              **kwargs):
         nodectl = self.nodectl
         log = self.log
-
-        is_multiple_control_planes = False
-        if load_balancer_vm_id:
-            is_multiple_control_planes = True
 
         r = nodectl.describe_network(vm_network_name)
         network_interface = ipaddress.IPv4Interface(r["cidr"])
@@ -79,8 +76,9 @@ class ControlPlaneService:
         preserved_ips.append(network_gw_ip)
         log.debug("preserved_ips", preserved_ips)
 
-        new_vm_id = nodectl.new_vm_id(vm_id_range)
-        new_vm_ip = nodectl.new_vm_ip(ip_pool, preserved_ips)
+        vm_list = nodectl.list_vm(vm_id_range)
+        new_vm_id = nodectl.new_vm_id(vm_list, vm_id_range)
+        new_vm_ip = nodectl.new_vm_ip(vm_list, ip_pool, preserved_ips)
         new_vm_name = f"{vm_name_prefix}{new_vm_id}"
 
         log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
@@ -99,6 +97,7 @@ class ControlPlaneService:
             ipconfig0=f"ip={new_vm_ip}/24,gw={network_gw_ip}",
             sshkeys=util.ProxmoxUtil.encode_sshkeys(vm_ssh_keys),
             onboot=vm_start_on_boot,
+            tags=";".join([config.Tag.ctlpl, config.Tag.kp]),
         )
         ctlplvmctl.resize_disk("scsi0", vm_disk_size)
 
@@ -122,6 +121,15 @@ class ControlPlaneService:
         ctlplvmctl.exec(f"chmod +x {vm_install_kube_location}")
         ctlplvmctl.exec(vm_install_kube_location)
 
+        if not existed_lb_vm_id:
+            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.lb)
+            if len(ctlpl_vm_list):
+                existed_lb_vm_id = ctlpl_vm_list[0]["vmid"]
+                log.info("existed_lb_vm_id", existed_lb_vm_id, "AUTO_DETECT")
+
+        is_multiple_control_planes = bool(existed_lb_vm_id)
+        log.info("is_multiple_control_planes", is_multiple_control_planes)
+
         # SECTION: standalone control plane
         if not is_multiple_control_planes:
             exitcode, _, _ = ctlplvmctl.kubeadm.init(
@@ -140,16 +148,23 @@ class ControlPlaneService:
             return new_vm_id
 
         # SECTION: stacked control plane
-        lbctl = nodectl.lbctl(load_balancer_vm_id)
-        exitcode, _, stderr = lbctl.add_backend("control-plane", new_vm_id,
-                                                f"{new_vm_ip}:6443")
-        if exitcode != 0:
-            log.error(stderr)
-            raise Exception("some thing wrong with add_backend")
+        lbctl = nodectl.lbctl(existed_lb_vm_id)
+        backend_name = config.HAPROXY_BACKEND_NAME
+        lbctl.add_backend(backend_name, new_vm_id, f"{new_vm_ip}:6443")
         lbctl.reload_haproxy()
 
+        if not existed_ctlpl_vm_id:
+            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+            for ctlpl_vm in ctlpl_vm_list:
+                ctlpl_vm_id = ctlpl_vm["vmid"]
+                # NOTE: avoid exist id is the same with newly created one
+                if ctlpl_vm_id != new_vm_id:
+                    existed_ctlpl_vm_id = ctlpl_vm_id
+                    log.info("existed_ctlpl_vm_id", existed_ctlpl_vm_id,
+                             "AUTO_DETECT")
+
         # No previous control plane, init a new one
-        if not control_plane_vm_id:
+        if not existed_ctlpl_vm_id:
             control_plane_endpoint = apiserver_endpoint
             if not control_plane_endpoint:
                 lb_config = lbctl.current_config()
@@ -175,8 +190,8 @@ class ControlPlaneService:
 
         # There are previous control plane prepare new control plane
         ctlplvmctl.ensure_cert_dirs()
-        self.copy_kube_certs(control_plane_vm_id, new_vm_id)
-        existed_ctlplvmctl = nodectl.ctlplvmctl(control_plane_vm_id)
+        self.copy_kube_certs(existed_ctlpl_vm_id, new_vm_id)
+        existed_ctlplvmctl = nodectl.ctlplvmctl(existed_ctlpl_vm_id)
         join_cmd = existed_ctlplvmctl.kubeadm.create_join_command(
             is_control_plane=True)
         log.info("join_cmd", " ".join(join_cmd))
@@ -185,12 +200,14 @@ class ControlPlaneService:
 
     def delete_control_plane(self,
                              vm_id,
-                             load_balancer_vm_id=None,
-                             control_plane_vm_id=None,
+                             vm_id_range=config.PROXMOX_VM_ID_RANGE,
+                             existed_lb_vm_id=None,
+                             existed_ctlpl_vm_id=None,
                              **kwargs):
         nodectl = self.nodectl
         log = self.log
-        vm = nodectl.find_vm(vm_id)
+        vm_list = nodectl.list_vm(vm_id_range)
+        vm = nodectl.filter_id(vm_list, vm_id)
         vm_name = vm["name"]
         ctlplvmctl = nodectl.ctlplvmctl(vm_id)
         # kubeadm reset is needed when deploying stacked control plane
@@ -202,10 +219,22 @@ class ControlPlaneService:
         except Exception as err:
             log.error(err)
 
-        if load_balancer_vm_id:
-            if control_plane_vm_id:
-                nodectl.ctlplvmctl(control_plane_vm_id).delete_node(vm_name)
-            lbctl = nodectl.lbctl(load_balancer_vm_id)
+        if not existed_lb_vm_id:
+            lb_vm_list = nodectl.filter_tag(vm_list, config.Tag.lb)
+            if len(lb_vm_list):
+                existed_lb_vm_id = lb_vm_list[0]["vmid"]
+
+        if existed_lb_vm_id:
+            if not existed_ctlpl_vm_id:
+                ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+                for ctlpl_vm in ctlpl_vm_list:
+                    ctlpl_vm_id = ctlpl_vm["vmid"]
+                    if ctlpl_vm_id != vm_id:
+                        existed_ctlpl_vm_id = ctlpl_vm_id
+                        break
+            if existed_ctlpl_vm_id:
+                nodectl.ctlplvmctl(existed_ctlpl_vm_id).delete_node(vm_name)
+            lbctl = nodectl.lbctl(existed_lb_vm_id)
             exitcode, stdout, stderr = lbctl.rm_backend("control-plane", vm_id)
             if exitcode != 0:
                 log.error(str(stderr))
