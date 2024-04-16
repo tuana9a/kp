@@ -122,35 +122,63 @@ class JoinControlPlaneCmd(Cmd):
         super().__init__("join")
 
     def _setup(self):
-        self.parser.add_argument("ctlplid", type=int)
         self.parser.add_argument("ctlplids", nargs="+")
 
     def _run(self):
         urllib3.disable_warnings()
         log = Logger.from_env()
         args = self.parsed_args
-        control_plane_id = args.ctlplid
         control_plane_ids = args.ctlplids
-        log.info("dad", control_plane_id, "childs", control_plane_ids)
+        child_ids_set = set(control_plane_ids)
         cfg = load_config(log=log)
         proxmox_node = cfg["proxmox_node"]
         proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
         nodectl = NodeController(proxmox_client, proxmox_node, log=log)
         service = ControlPlaneService(nodectl, log=log)
-        load_balancer_vm_id = cfg["load_balancer_vm_id"]
-        lbctl = nodectl.lbctl(load_balancer_vm_id)
+        ctlpl_list = nodectl.detect_control_planes(
+            vm_id_range=cfg["vm_id_range"])
+
+        if not len(ctlpl_list):
+            log.info("can't find any control planes")
+            return
+
+        for ctlpl_vm in ctlpl_list:
+            ctlpl_vm_id = ctlpl_vm["vmid"]
+            if ctlpl_vm_id not in child_ids_set:
+                control_plane_id = ctlpl_vm_id
+                break
+
+        if not control_plane_id:
+            log.info("can't find dad control plane")
+            return
+
+        log.info("dad", control_plane_id, "childs", control_plane_ids)
+
+        lb_vm_list = nodectl.detect_load_balancers(cfg["vm_id_range"])
+
+        if not len(lb_vm_list):
+            log.info("can't not find load balancers")
+            return
+
+        lb_vm_id = lb_vm_list[0]["vmid"]
+        lbctl = nodectl.lbctl(lb_vm_id)
         dadctl = nodectl.ctlplvmctl(control_plane_id)
         join_cmd = dadctl.kubeadm.create_join_command(is_control_plane=True)
+
+        # EXPLAIN: need to join and update the tags before detect control plane by tag
         for id in control_plane_ids:
             ctlplvmctl = nodectl.ctlplvmctl(id)
             ctlplvmctl.ensure_cert_dirs()
             service.copy_kube_certs(control_plane_id, id)
-            current_config = ctlplvmctl.current_config()
-            ifconfig0 = current_config.get("ipconfig0", None)
-            if not ifconfig0:
-                raise Exception("can not detect the vm ip")
-            vm_ip = util.ProxmoxUtil.extract_ip(ifconfig0)
-            backend_name = config.HAPROXY_BACKEND_NAME
-            lbctl.add_backend(backend_name, id, f"{vm_ip}:6443")
-            lbctl.reload_haproxy()
             ctlplvmctl.exec(join_cmd)
+            ctlplvmctl.update_config(tags=[config.Tag.ctlpl, config.Tag.kp])
+
+        with open(cfg["haproxy_cfg"], "r", encoding="utf8") as f:
+            content = f.read()
+            ctlpl_list = nodectl.detect_control_planes(
+                vm_id_range=cfg["vm_id_range"])
+            backends_content = util.Haproxy.render_backends_config(ctlpl_list)
+            content = content.format(control_plane_backends=backends_content)
+            # if using the roll_lb method then the backends placeholder will not be there, so preserve the old haproxy.cfg
+            lbctl.update_haproxy_config(content)
+            lbctl.reload_haproxy()

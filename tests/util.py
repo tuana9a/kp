@@ -48,6 +48,6 @@ class TestProxmoxUtil(unittest.TestCase):
 
     def test_extract_ip(self):
         self.assertEqual(
-            util.ProxmoxUtil.extract_ip(
+            util.Proxmox.extract_ip(
                 "ip=192.168.56.123/24,gw=192.168.56.1"), "192.168.56.123")
 

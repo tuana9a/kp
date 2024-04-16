@@ -30,7 +30,7 @@ def gen_characters(length: int):
     return random_string
 
 
-class ProxmoxUtil:
+class Proxmox:
 
     @staticmethod
     def extract_ip(ifconfig_n: str):
@@ -48,3 +48,16 @@ class ProxmoxUtil:
         if not sshkeys: return None
         # NOTE: https://github.com/proxmoxer/proxmoxer/issues/153
         return urllib.parse.quote(sshkeys, safe="")
+
+
+class Haproxy:
+
+    @staticmethod
+    def render_backends_config(backends: list):
+        content = ""
+        for backend in backends:
+            vm_id = backend["vmid"]
+            vm_ip = backend["vmip"]
+            # TODO: indent is configurable
+            content += 4 * " " + f"server {vm_id} {vm_ip}:6443 check\n"
+        return content

@@ -60,7 +60,7 @@ class WorkerService:
             memory=vm_memory,
             ciuser=vm_username,
             cipassword=vm_password,
-            sshkeys=util.ProxmoxUtil.encode_sshkeys(vm_ssh_keys),
+            sshkeys=util.Proxmox.encode_sshkeys(vm_ssh_keys),
             agent="enabled=1,fstrim_cloned_disks=1",
             net0=f"virtio,bridge={vm_network_name}",
             ipconfig0=f"ip={new_vm_ip}/24,gw={network_gw_ip}",

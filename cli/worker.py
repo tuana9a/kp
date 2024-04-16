@@ -6,6 +6,7 @@ from app.config import load_config
 from app.logger import Logger
 from app.controller.node import NodeController
 from app.service.worker import WorkerService
+from app import config
 
 
 class WorkerCmd(Cmd):
@@ -66,7 +67,6 @@ class JoinWorkerCmd(Cmd):
         super().__init__("join")
 
     def _setup(self):
-        self.parser.add_argument("ctlplid", type=int)
         self.parser.add_argument("workerids", nargs="+")
 
     def _run(self):
@@ -74,13 +74,19 @@ class JoinWorkerCmd(Cmd):
         log = Logger.from_env()
         args = self.parsed_args
         worker_ids = args.workerids
-        control_plane_id = args.ctlplid
-        log.info("ctlpl", control_plane_id, "workers", worker_ids)
         cfg = load_config(log=log)
         proxmox_node = cfg["proxmox_node"]
         proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
         nodectl = NodeController(proxmox_client, proxmox_node, log=log)
+        control_planes = nodectl.detect_control_planes(cfg["vm_id_range"])
+        if not len(control_planes):
+            log.info("can't not find any control planes")
+            return
+        control_plane_id = control_planes[0]["vmid"]
+        log.info("ctlpl", control_plane_id, "workers", worker_ids)
         ctlctl = nodectl.ctlplvmctl(control_plane_id)
         join_cmd = ctlctl.kubeadm.create_join_command()
         for id in worker_ids:
-            nodectl.wkctl(id).exec(join_cmd)
+            wkctl = nodectl.wkctl(id)
+            wkctl.exec(join_cmd)
+            wkctl.update_config(tags=[config.Tag.wk, config.Tag.kp])

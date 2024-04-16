@@ -46,6 +46,7 @@ class ControlPlaneService:
                              install_containerd_filepath: str,
                              install_kube_filepath: str,
                              containerd_config_filepath: str,
+                             haproxy_cfg: str,
                              pod_cidr,
                              svc_cidr=None,
                              preserved_ips=[],
@@ -57,10 +58,7 @@ class ControlPlaneService:
                              vm_username="u",
                              vm_password="1",
                              vm_ssh_keys=None,
-                             apiserver_endpoint=None,
                              cni_manifest_file=None,
-                             existed_ctlpl_vm_id=None,
-                             existed_lb_vm_id=None,
                              vm_start_on_boot=1,
                              **kwargs):
         nodectl = self.nodectl
@@ -95,7 +93,7 @@ class ControlPlaneService:
             cipassword=vm_password,
             net0=f"virtio,bridge={vm_network_name}",
             ipconfig0=f"ip={new_vm_ip}/24,gw={network_gw_ip}",
-            sshkeys=util.ProxmoxUtil.encode_sshkeys(vm_ssh_keys),
+            sshkeys=util.Proxmox.encode_sshkeys(vm_ssh_keys),
             onboot=vm_start_on_boot,
             tags=";".join([config.Tag.ctlpl, config.Tag.kp]),
         )
@@ -121,21 +119,19 @@ class ControlPlaneService:
         ctlplvmctl.exec(f"chmod +x {vm_install_kube_location}")
         ctlplvmctl.exec(vm_install_kube_location)
 
-        if not existed_lb_vm_id:
-            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.lb)
-            if len(ctlpl_vm_list):
-                existed_lb_vm_id = ctlpl_vm_list[0]["vmid"]
-                log.info("existed_lb_vm_id", existed_lb_vm_id, "AUTO_DETECT")
+        ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.lb)
+        if len(ctlpl_vm_list):
+            existed_lb_vm_id = ctlpl_vm_list[0]["vmid"]
+            log.info("existed_lb_vm_id", existed_lb_vm_id, "AUTO_DETECT")
 
         is_multiple_control_planes = bool(existed_lb_vm_id)
         log.info("is_multiple_control_planes", is_multiple_control_planes)
 
         # SECTION: standalone control plane
         if not is_multiple_control_planes:
-            exitcode, _, _ = ctlplvmctl.kubeadm.init(
-                control_plane_endpoint=new_vm_ip,
-                pod_cidr=pod_cidr,
-                svc_cidr=svc_cidr)
+            ctlplvmctl.kubeadm.init(control_plane_endpoint=new_vm_ip,
+                                    pod_cidr=pod_cidr,
+                                    svc_cidr=svc_cidr)
 
             if not cni_manifest_file:
                 log.info("skip apply cni step")
@@ -149,60 +145,57 @@ class ControlPlaneService:
 
         # SECTION: stacked control plane
         lbctl = nodectl.lbctl(existed_lb_vm_id)
-        backend_name = config.HAPROXY_BACKEND_NAME
-        lbctl.add_backend(backend_name, new_vm_id, f"{new_vm_ip}:6443")
-        lbctl.reload_haproxy()
+        with open(haproxy_cfg, "r", encoding="utf8") as f:
+            content = f.read()
+            ctlpl_list = nodectl.detect_control_planes(vm_id_range=vm_id_range)
+            backends_content = util.Haproxy.render_backends_config(ctlpl_list)
+            content = content.format(control_plane_backends=backends_content)
+            # if using the roll_lb method then the backends placeholder will not be there, so preserve the old haproxy.cfg
+            lbctl.update_haproxy_config(content)
+            lbctl.reload_haproxy()
 
-        if not existed_ctlpl_vm_id:
-            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
-            for ctlpl_vm in ctlpl_vm_list:
-                ctlpl_vm_id = ctlpl_vm["vmid"]
-                # NOTE: avoid exist id is the same with newly created one
-                if ctlpl_vm_id != new_vm_id:
-                    existed_ctlpl_vm_id = ctlpl_vm_id
-                    log.info("existed_ctlpl_vm_id", existed_ctlpl_vm_id,
-                             "AUTO_DETECT")
+        ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+        for ctlpl_vm in ctlpl_vm_list:
+            ctlpl_vm_id = ctlpl_vm["vmid"]
+            # NOTE: avoid exist id is the same with newly created one
+            if ctlpl_vm_id != new_vm_id:
+                existed_ctlpl_vm_id = ctlpl_vm_id
+                log.info("existed_ctlpl_vm_id", existed_ctlpl_vm_id,
+                         "AUTO_DETECT")
 
-        # No previous control plane, init a new one
-        if not existed_ctlpl_vm_id:
-            control_plane_endpoint = apiserver_endpoint
-            if not control_plane_endpoint:
-                lb_config = lbctl.current_config()
-                lb_ifconfig0 = lb_config.get("ipconfig0", None)
-                if not lb_ifconfig0:
-                    raise Exception("can not detect control_plane_endpoint")
-                vm_ip = util.ProxmoxUtil.extract_ip(lb_ifconfig0)
-                control_plane_endpoint = vm_ip
-            exitcode, _, _ = ctlplvmctl.kubeadm.init(
-                control_plane_endpoint=control_plane_endpoint,
-                pod_cidr=pod_cidr,
-                svc_cidr=svc_cidr)
+        # EXPLAIN: join previous control plane
+        if existed_ctlpl_vm_id:
+            ctlplvmctl.ensure_cert_dirs()
+            self.copy_kube_certs(existed_ctlpl_vm_id, new_vm_id)
+            existed_ctlplvmctl = nodectl.ctlplvmctl(existed_ctlpl_vm_id)
+            join_cmd = existed_ctlplvmctl.kubeadm.create_join_command(
+                is_control_plane=True)
+            log.info("join_cmd", " ".join(join_cmd))
+            ctlplvmctl.exec(join_cmd, timeout=20 * 60)
+            return new_vm_id
 
-            if not cni_manifest_file:
-                log.info("skip ini cni step")
-                return new_vm_id
+        # EXPLAIN: init a fresh new control plane
+        lb_config = lbctl.current_config()
+        lb_ifconfig0 = lb_config.get("ipconfig0", None)
+        if not lb_ifconfig0:
+            raise Exception("can not detect control_plane_endpoint")
+        vm_ip = util.Proxmox.extract_ip(lb_ifconfig0)
+        control_plane_endpoint = vm_ip
+        ctlplvmctl.kubeadm.init(control_plane_endpoint=control_plane_endpoint,
+                                pod_cidr=pod_cidr,
+                                svc_cidr=svc_cidr)
 
+        if cni_manifest_file:
             cni_filepath = "/root/cni.yaml"
             with open(cni_manifest_file, "r", encoding="utf-8") as f:
                 ctlplvmctl.write_file(cni_filepath, f.read())
                 ctlplvmctl.apply_file(cni_filepath)
-            return new_vm_id
-
-        # There are previous control plane prepare new control plane
-        ctlplvmctl.ensure_cert_dirs()
-        self.copy_kube_certs(existed_ctlpl_vm_id, new_vm_id)
-        existed_ctlplvmctl = nodectl.ctlplvmctl(existed_ctlpl_vm_id)
-        join_cmd = existed_ctlplvmctl.kubeadm.create_join_command(
-            is_control_plane=True)
-        log.info("join_cmd", " ".join(join_cmd))
-        ctlplvmctl.exec(join_cmd, timeout=20 * 60)
         return new_vm_id
 
     def delete_control_plane(self,
                              vm_id,
+                             haproxy_cfg: str,
                              vm_id_range=config.PROXMOX_VM_ID_RANGE,
-                             existed_lb_vm_id=None,
-                             existed_ctlpl_vm_id=None,
                              **kwargs):
         nodectl = self.nodectl
         log = self.log
@@ -219,25 +212,37 @@ class ControlPlaneService:
         except Exception as err:
             log.error(err)
 
-        if not existed_lb_vm_id:
-            lb_vm_list = nodectl.filter_tag(vm_list, config.Tag.lb)
-            if len(lb_vm_list):
-                existed_lb_vm_id = lb_vm_list[0]["vmid"]
+        lb_vm_list = nodectl.detect_load_balancers(vm_id_range=vm_id_range)
+        if len(lb_vm_list):
+            existed_lb_vm_id = lb_vm_list[0]["vmid"]
 
-        if existed_lb_vm_id:
-            if not existed_ctlpl_vm_id:
-                ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
-                for ctlpl_vm in ctlpl_vm_list:
-                    ctlpl_vm_id = ctlpl_vm["vmid"]
-                    if ctlpl_vm_id != vm_id:
-                        existed_ctlpl_vm_id = ctlpl_vm_id
-                        break
-            if existed_ctlpl_vm_id:
-                nodectl.ctlplvmctl(existed_ctlpl_vm_id).delete_node(vm_name)
-            lbctl = nodectl.lbctl(existed_lb_vm_id)
-            exitcode, stdout, stderr = lbctl.rm_backend("control-plane", vm_id)
-            if exitcode != 0:
-                log.error(str(stderr))
+        if not existed_lb_vm_id:
+            ctlplvmctl.shutdown()
+            ctlplvmctl.wait_for_shutdown()
+            ctlplvmctl.delete()
+            return
+
+        for ctlpl_vm in nodectl.detect_control_planes(vm_id_range=vm_id_range):
+            ctlpl_vm_id = ctlpl_vm["vmid"]
+            if ctlpl_vm_id != vm_id:
+                existed_ctlpl_vm_id = ctlpl_vm_id
+                break
+
+        if existed_ctlpl_vm_id:
+            nodectl.ctlplvmctl(existed_ctlpl_vm_id).delete_node(vm_name)
+
+        lbctl = nodectl.lbctl(existed_lb_vm_id)
+
+        with open(haproxy_cfg, "r", encoding="utf8") as f:
+            config_content = f.read()
+            backend_content = util.Haproxy.render_backends_config(
+                control_planes)
+            control_planes = nodectl.detect_control_planes(
+                vm_id_range=vm_id_range)
+            config_content = config_content.format(
+                control_plane_backends=backend_content)
+            # if using the roll_lb method then the backends placeholder will not be there, so preserve the old haproxy.cfg
+            lbctl.update_haproxy_config(config_content)
             lbctl.reload_haproxy()
 
         ctlplvmctl.shutdown()

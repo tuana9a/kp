@@ -18,7 +18,6 @@ class LbService:
     def create_lb(self,
                   vm_network_name,
                   vm_template_id: int,
-                  config_haproxy_filepath: str,
                   haproxy_cfg: str,
                   install_kubectl_filepath: str = None,
                   preserved_ips=[],
@@ -60,7 +59,7 @@ class LbService:
             memory=vm_memory,
             ciuser=vm_username,
             cipassword=vm_password,
-            sshkeys=util.ProxmoxUtil.encode_sshkeys(vm_ssh_keys),
+            sshkeys=util.Proxmox.encode_sshkeys(vm_ssh_keys),
             agent="enabled=1,fstrim_cloned_disks=1",
             net0=f"virtio,bridge={vm_network_name}",
             ipconfig0=f"ip={new_vm_ip}/24,gw={network_gw_ip}",
@@ -73,39 +72,18 @@ class LbService:
         lbctl.wait_for_guest_agent()
         lbctl.wait_for_cloud_init()
 
-        lbctl.exec("apt install -y haproxy")
-
-        vm_config_haproxy_location = "/usr/local/bin/config_haproxy.py"
-        with open(config_haproxy_filepath, "r") as f:
-            lbctl.write_file(vm_config_haproxy_location, f.read())
-        lbctl.exec(f"chmod +x {vm_config_haproxy_location}")
+        lbctl.install_haproxy()
 
         if not os.path.exists(haproxy_cfg):
             raise FileNotFoundError(haproxy_cfg)
 
-        vm_haproxy_cfg_path = "/etc/haproxy/haproxy.cfg"
         with open(haproxy_cfg, "r", encoding="utf8") as f:
-            lbctl.write_file(vm_haproxy_cfg_path, f.read())
-            lbctl.reload_haproxy()
-
-        ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
-        if len(ctlpl_vm_list):
-            log.info("ctlpl_vm_list", "DETECTED")
-            backends = []
-            for ctlpl_vm in ctlpl_vm_list:
-                vmid = ctlpl_vm["vmid"]
-                ctlplvmctl = nodectl.ctlplvmctl(vmid)
-                current_config = ctlplvmctl.current_config()
-                ifconfig0 = current_config.get("ipconfig0", None)
-                if ifconfig0:
-                    vmip = util.ProxmoxUtil.extract_ip(ifconfig0)
-                    backends.append({"vmid": vmid, "vmip": vmip})
-            log.info("add_backend", backends)
-            for backend in backends:
-                vmid = backend["vmid"]
-                vmip = backend["vmip"]
-                backend_name = config.HAPROXY_BACKEND_NAME
-                lbctl.add_backend(backend_name, vmid, f"{vmip}:6443")
+            content = f.read()
+            ctlpl_list = nodectl.detect_control_planes(vm_id_range=vm_id_range)
+            backends_content = util.Haproxy.render_backends_config(ctlpl_list)
+            content = content.format(control_plane_backends=backends_content)
+            # if using the roll_lb method then the backends placeholder will not be there, so preserve the old haproxy.cfg
+            lbctl.update_haproxy_config(content)
             lbctl.reload_haproxy()
 
         if install_kubectl_filepath:
@@ -116,19 +94,3 @@ class LbService:
             lbctl.exec(vm_install_kubectl_location)
 
         return new_vm_id
-
-    def roll_lb(self, old_vm_id, **kwargs):
-        nodectl = self.nodectl
-        log = self.log
-        vmctl = nodectl.vmctl(old_vm_id)
-        r = vmctl.read_file("/etc/haproxy/haproxy.cfg")
-        content = r["content"]
-        backup_cfg_filepath = f"/tmp/haproxy-{time.time_ns()}.cfg"
-        log.info("backup", backup_cfg_filepath)
-        with open(backup_cfg_filepath, "w") as f:
-            f.write(content)
-        vmctl.shutdown()
-        vmctl.wait_for_shutdown()
-        vmctl.delete()
-        kwargs["haproxy_cfg"] = backup_cfg_filepath
-        return self.create_lb(**kwargs)

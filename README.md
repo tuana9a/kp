@@ -35,17 +35,30 @@ See [./examples/config.json](./examples/config.json)
 
 ```mermaid
 graph TD;
-  cmd-->service;
-  cmd-->controller;
+  cli-->service;
+  cli-->controller;
   service-->controller;
   service-->util;
-  cmd-->util;
+  cli-->util;
   controller-->util;
+  config;
+  logger;
 ```
 
 # How to use
 
 TODO
+```bash
+python3 -m venv .venv
+```
+
+```bash
+source .venv/bin/activate
+```
+
+```bash
+pip install -e .
+```
 
 ```bash
 sudo ln -sf $(which kp) /usr/local/bin/kp

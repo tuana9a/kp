@@ -1,6 +1,7 @@
 from app.controller.vm import VmController
 from proxmoxer import ProxmoxAPI
 from app.logger import Logger
+from app import config
 
 
 class LbVmController(VmController):
@@ -12,22 +13,13 @@ class LbVmController(VmController):
                  log=Logger.DEBUG) -> None:
         super().__init__(api, node, vm_id, log)
 
-    def add_backend(self, backend_name: str, server_name: str,
-                    server_endpoint):
-        cmd = [
-            "/usr/local/bin/config_haproxy.py", "-c",
-            "/etc/haproxy/haproxy.cfg", "backend", backend_name, "add",
-            server_name, server_endpoint
-        ]
-        return self.exec(cmd, interval_check=3)
+    def install_haproxy(self):
+        return self.exec(["apt", "install", "-y", "haproxy"])
 
-    def rm_backend(self, backend_name: str, server_name: str):
-        cmd = [
-            "/usr/local/bin/config_haproxy.py", "-c",
-            "/etc/haproxy/haproxy.cfg", "backend", backend_name, "rm",
-            server_name
-        ]
-        return self.exec(cmd)
+    def update_haproxy_config(self,
+                              config_content: str,
+                              config_path=config.HAPROXY_CONFIG_LOCATION):
+        self.write_file(config_path, config_content)
 
     def reload_haproxy(self):
         self.exec(["systemctl", "reload", "haproxy"], interval_check=3)

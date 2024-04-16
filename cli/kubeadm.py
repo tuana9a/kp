@@ -11,12 +11,9 @@ from app import config
 class KubeadmCmd(Cmd):
 
     def __init__(self) -> None:
-        super().__init__("kubeadm",
-                         childs=[
-                             ResetKubeCmd(),
-                             InitKubeCmd(),
-                         ],
-                         aliases=["adm"])
+        super().__init__("kubeadm", childs=[
+            ResetKubeCmd(),
+        ], aliases=["adm"])
 
 
 class ResetKubeCmd(Cmd):
@@ -37,84 +34,34 @@ class ResetKubeCmd(Cmd):
         proxmox_node = cfg["proxmox_node"]
         proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
         nodectl = NodeController(proxmox_client, proxmox_node, log=log)
-        ctl = nodectl.kubeadmctl(vm_id)
-        ctl.kubeadm.reset()
+        vmctl = nodectl.kubeadmctl(vm_id)
+        vm_current_config = vmctl.current_config()
+        vm_name = vm_current_config["name"]
+        ctlpl_list = nodectl.detect_control_planes(
+            vm_id_range=cfg["vm_id_range"])
 
+        if len(ctlpl_list):
+            ctlpl_vm_id = ctlpl_list[0]["vmid"]
+            ctlplvmctl = nodectl.ctlplvmctl(ctlpl_vm_id)
+            ctlplvmctl.drain_node(vm_name)
+            ctlplvmctl.delete_node(vm_name)
 
-class InitKubeCmd(Cmd):
+        # run the drain before the reset or pod can't not be killed
+        vmctl.kubeadm.reset()
+        vmctl.update_config(tags=[config.Tag.kp])
 
-    def __init__(self) -> None:
-        super().__init__("init")
-
-    def _setup(self):
-        self.parser.add_argument("vmid", type=int)
-
-    def _run(self):
-        urllib3.disable_warnings()
-        log = Logger.from_env()
-        args = self.parsed_args
-        vm_id = args.vmid
-        cfg = load_config(log=log)
-        log.info("vm_id", vm_id)
-        proxmox_node = cfg["proxmox_node"]
-        load_balancer_vm_id = cfg.get("load_balancer_vm_id", None)
-        pod_cidr = cfg["pod_cidr"]
-        svc_cidr = cfg.get("svc_cidr", None)
-        cni_manifest_file = cfg.get("cni_manifest_file", None)
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
-        is_multiple_control_planes = False
-
-        if load_balancer_vm_id:
-            is_multiple_control_planes = True
-
-        ctlplvmctl = nodectl.ctlplvmctl(vm_id)
-        current_config = ctlplvmctl.current_config()
-        ifconfig0 = current_config.get("ipconfig0", None)
-        if not ifconfig0:
-            raise Exception("can not detect the vm ip")
-        vm_ip = util.ProxmoxUtil.extract_ip(ifconfig0)
-
-        if not is_multiple_control_planes:
-            exitcode, _, _ = ctlplvmctl.kubeadm.init(
-                control_plane_endpoint=vm_ip,
-                pod_cidr=pod_cidr,
-                svc_cidr=svc_cidr)
-
-            if not cni_manifest_file:
-                log.info("skip apply cni step")
-                return
-
-            cni_filepath = "/root/cni.yaml"
-            with open(cni_manifest_file, "r", encoding="utf-8") as f:
-                ctlplvmctl.write_file(cni_filepath, f.read())
-                ctlplvmctl.apply_file(cni_filepath)
-            return
-
-        # SECTION: stacked control plane
-        lbctl = nodectl.lbctl(load_balancer_vm_id)
-
-        backend_name = config.HAPROXY_BACKEND_NAME
-        lbctl.add_backend(backend_name, vm_id, f"{vm_ip}:6443")
-        lbctl.reload_haproxy()
-
-        lb_config = lbctl.current_config()
-        lb_ifconfig0 = lb_config.get("ipconfig0", None)
-        if not lb_ifconfig0:
-            raise Exception("can not detect the control_plane_endpoint")
-        vm_ip = util.ProxmoxUtil.extract_ip(lb_ifconfig0)
-        control_plane_endpoint = vm_ip
-        exitcode, _, _ = ctlplvmctl.kubeadm.init(
-            control_plane_endpoint=control_plane_endpoint,
-            pod_cidr=pod_cidr,
-            svc_cidr=svc_cidr)
-
-        if not cni_manifest_file:
-            log.info("skip ini cni step")
-            return
-
-        cni_filepath = "/root/cni.yaml"
-        with open(cni_manifest_file, "r", encoding="utf-8") as f:
-            ctlplvmctl.write_file(cni_filepath, f.read())
-            ctlplvmctl.apply_file(cni_filepath)
-        return
+        lb_vm_list = nodectl.detect_load_balancers(cfg["vm_id_range"])
+        if len(lb_vm_list):
+            lb_vm_id = lb_vm_list[0]["vmid"]
+            lbctl = nodectl.lbctl(lb_vm_id)
+            with open(cfg["haproxy_cfg"], "r", encoding="utf8") as f:
+                content = f.read()
+                ctlpl_list = nodectl.detect_control_planes(
+                    vm_id_range=cfg["vm_id_range"])
+                backends_content = util.Haproxy.render_backends_config(
+                    ctlpl_list)
+                content = content.format(
+                    control_plane_backends=backends_content)
+                # if using the roll_lb method then the backends placeholder will not be there, so preserve the old haproxy.cfg
+                lbctl.update_haproxy_config(content)
+                lbctl.reload_haproxy()

@@ -141,7 +141,7 @@ class NodeController:
             config = self.vmctl(id).current_config()
             ifconfig0 = config.get("ipconfig0", None)
             if not ifconfig0: continue
-            ip = util.ProxmoxUtil.extract_ip(ifconfig0)
+            ip = util.Proxmox.extract_ip(ifconfig0)
             if ip: exist_ips.add(ip)
         log.debug("exist_ips", exist_ips)
         new_ip = util.find_missing(ip_pool, exist_ips)
@@ -149,3 +149,53 @@ class NodeController:
             log.error("Can't find new ip")
             raise CanNotGetNewVmIp()
         return new_ip
+
+    def detect_control_planes(self,
+                              vm_id_range=config.PROXMOX_VM_ID_RANGE,
+                              **kwargs):
+        """
+        automatically scan the control planes by tag
+        """
+        log = self.log
+        vm_list = self.list_vm(vm_id_range)
+        ctlpl_vm_list = self.filter_tag(vm_list, config.Tag.ctlpl)
+        control_planes = []
+
+        if not len(ctlpl_vm_list):
+            return control_planes
+        log.info("ctlpl_vm_list", "DETECTED")
+
+        for vm in ctlpl_vm_list:
+            vmid = vm["vmid"]
+            ctlplvmctl = self.ctlplvmctl(vmid)
+            current_config = ctlplvmctl.current_config()
+            ifconfig0 = current_config.get("ipconfig0", None)
+            if ifconfig0:
+                vmip = util.Proxmox.extract_ip(ifconfig0)
+                control_planes.append({"vmid": vmid, "vmip": vmip})
+        return control_planes
+
+    def detect_load_balancers(self,
+                              vm_id_range=config.PROXMOX_VM_ID_RANGE,
+                              **kwargs):
+        """
+        automatically scan the control planes by tag
+        """
+        log = self.log
+        vm_list = self.list_vm(vm_id_range)
+        lb_vm_list = self.filter_tag(vm_list, config.Tag.lb)
+        load_balancers = []
+
+        if not len(lb_vm_list):
+            return load_balancers
+        log.info("lb_vm_list", "DETECTED")
+
+        for vm in lb_vm_list:
+            vmid = vm["vmid"]
+            lbctl = self.lbctl(vmid)
+            current_config = lbctl.current_config()
+            ifconfig0 = current_config.get("ipconfig0", None)
+            if ifconfig0:
+                vmip = util.Proxmox.extract_ip(ifconfig0)
+                load_balancers.append({"vmid": vmid, "vmip": vmip})
+        return load_balancers
