@@ -3,6 +3,8 @@ from app.model.vm import Vm
 from app.error import *
 from app import util
 from app import config
+from app.payload import *
+from typing import List
 
 
 class PveNode:
@@ -25,9 +27,10 @@ class PveNode:
         node = self.node
 
         r = api.nodes(node).qemu.get()
-        vm_list = []
-        for vm in r:
-            vmid = vm["vmid"]
+        vm_list: List[VmResponse] = []
+        for x in r:
+            vm = VmResponse(**x)
+            vmid = vm.vmid
             if vmid >= id_range[0] and vmid <= id_range[1]:
                 vm_list.append(vm)
         util.log.debug(node, "list_vm", len(vm_list), vm_list)
@@ -42,13 +45,13 @@ class PveNode:
         return r
 
     def new_vm_id(self,
-                  vm_list=[],
+                  vm_list: List[VmResponse] = [],
                   id_range=config.PROXMOX_VM_ID_RANGE,
                   preserved_ids=[]):
         exist_ids = set()
         exist_ids.update(preserved_ids)
         for vm in vm_list:
-            id = vm["vmid"]
+            id = vm.vmid
             exist_ids.add(id)
         util.log.debug("exist_ids", exist_ids)
         new_id = util.find_missing_number(id_range[0], id_range[1], exist_ids)
@@ -57,13 +60,17 @@ class PveNode:
             raise GetNewVmIdFailed()
         return new_id
 
-    def new_vm_ip(self, vm_list=[], ip_pool=[], preserved_ips=[]):
+    def new_vm_ip(
+            self,
+            vm_list: List[VmResponse] = [],
+            ip_pool=[],
+            preserved_ips=[]):
         exist_ips = set()
         exist_ips.update(preserved_ips)
         for vm in vm_list:
-            id = vm["vmid"]
-            config = Vm(self.api, self.node, id).current_config()
-            ifconfig0 = config.get("ipconfig0", None)
+            id = vm.vmid
+            ifconfig0 = Vm(self.api, self.node,
+                           id).current_config().ifconfig(0)
             if not ifconfig0:
                 continue
             ip = util.Proxmox.extract_ip(ifconfig0)
@@ -82,24 +89,11 @@ class PveNode:
         """
         automatically scan the control planes by tag
         """
-
-        vm_list = self.list_vm(vm_id_range)
-        ctlpl_vm_list = util.Proxmox.filter_vm_tag(vm_list, config.Tag.ctlpl)
-        control_planes = []
-
-        if not len(ctlpl_vm_list):
-            return control_planes
-        util.log.info("ctlpl_vm_list", "DETECTED")
-
-        for vm in ctlpl_vm_list:
-            vmid = vm["vmid"]
-            vmctl = Vm(self.api, self.node, vmid)
-            current_config = vmctl.current_config()
-            ifconfig0 = current_config.get("ipconfig0", None)
-            if ifconfig0:
-                vmip = util.Proxmox.extract_ip(ifconfig0)
-                control_planes.append({"vmid": vmid, "vmip": vmip})
-        return control_planes
+        ctlpl_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
+            self.list_vm(vm_id_range),
+            config.Tag.ctlpl)
+        util.log.info("detect_control_planes", len(ctlpl_list))
+        return ctlpl_list
 
     def detect_load_balancers(self,
                               vm_id_range=config.PROXMOX_VM_ID_RANGE,
@@ -107,21 +101,8 @@ class PveNode:
         """
         automatically scan the control planes by tag
         """
-
-        vm_list = self.list_vm(vm_id_range)
-        lb_vm_list = util.Proxmox.filter_vm_tag(vm_list, config.Tag.lb)
-        load_balancers = []
-
-        if not len(lb_vm_list):
-            return load_balancers
-        util.log.info("lb_vm_list", "DETECTED")
-
-        for vm in lb_vm_list:
-            vmid = vm["vmid"]
-            vmctl = Vm(self.api, self.node, vmid)
-            current_config = vmctl.current_config()
-            ifconfig0 = current_config.get("ipconfig0", None)
-            if ifconfig0:
-                vmip = util.Proxmox.extract_ip(ifconfig0)
-                load_balancers.append({"vmid": vmid, "vmip": vmip})
-        return load_balancers
+        lb_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
+            self.list_vm(vm_id_range),
+            config.Tag.lb)
+        util.log.info("detect_load_balancers", len(lb_list))
+        return lb_list

@@ -1,12 +1,11 @@
 import sys
 
 from cli.core import Cmd
-from cli.ctlpl import ControlPlaneCmd
+from cli.plane import ControlPlaneCmd
 from cli.lb import LbCmd
 from cli.help import TreeCmd
 from cli.worker import WorkerCmd
 from cli.vm import VmCmd
-from cli.kubeadm import KubeadmCmd
 
 
 class MainCmd(Cmd):
@@ -18,7 +17,6 @@ class MainCmd(Cmd):
                              LbCmd(),
                              WorkerCmd(),
                              VmCmd(),
-                             KubeadmCmd(),
                              TreeCmd(parent=self)
                          ])
 

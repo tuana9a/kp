@@ -33,8 +33,8 @@ class RebootVmCmd(Cmd):
         ids = args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
-        proxmox_node = cfg["proxmox_node"]
-        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        proxmox_node = cfg.proxmox_node
+        proxmox_client = util.Proxmox.create_api_client(cfg)
         nodectl = PveNode(proxmox_client, proxmox_node)
         for id in ids:
             vmctl = Vm(nodectl.api, nodectl.node, id)
@@ -52,12 +52,11 @@ class RemoveVmCmd(Cmd):
     def _run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
-
         ids = args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
-        proxmox_node = cfg["proxmox_node"]
-        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        proxmox_node = cfg.proxmox_node
+        proxmox_client = util.Proxmox.create_api_client(cfg)
         nodectl = PveNode(proxmox_client, proxmox_node)
         for id in ids:
             vmctl = Vm(nodectl.api, nodectl.node, id)
@@ -81,8 +80,8 @@ class StartVmCmd(Cmd):
         ids = args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
-        proxmox_node = cfg["proxmox_node"]
-        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        proxmox_node = cfg.proxmox_node
+        proxmox_client = util.Proxmox.create_api_client(cfg)
         nodectl = PveNode(proxmox_client, proxmox_node)
         for id in ids:
             vmctl = Vm(nodectl.api, nodectl.node, id)
@@ -106,11 +105,10 @@ class CopyFileCmd(Cmd):
         path = args.path
         vm_id = args.vmid
         urllib3.disable_warnings()
-
         util.log.info("vm_id", vm_id)
         cfg = util.load_config()
-        proxmox_node = cfg["proxmox_node"]
-        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        proxmox_node = cfg.proxmox_node
+        proxmox_client = util.Proxmox.create_api_client(cfg)
         nodectl = PveNode(proxmox_client, proxmox_node)
         vmctl = Vm(nodectl.api, nodectl.node, vm_id)
         util.log.info(localpath, "->", path)

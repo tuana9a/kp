@@ -4,10 +4,13 @@ import urllib
 import random
 import string
 
+from typing import List
 from app.logger import Logger
 from app.error import *
 from proxmoxer import ProxmoxAPI
 from app import config
+from app.payload import *
+
 
 log = Logger.from_env()
 
@@ -47,7 +50,7 @@ def load_config(config_path=os.getenv("KP_CONFIG")):
     if not os.path.exists(config_path):
         raise FileNotFoundError(config_path)
     with open(config_path, "r") as f:
-        return json.loads(f.read())
+        return Cfg(**json.loads(f.read()))
 
 
 class Proxmox:
@@ -71,51 +74,43 @@ class Proxmox:
         return urllib.parse.quote(sshkeys, safe="")
 
     @staticmethod
-    def create_api_client(proxmox_host,
-                          proxmox_user,
-                          proxmox_password=None,
-                          proxmox_token_name=None,
-                          proxmox_token_value=None,
-                          proxmox_verify_ssl=False,
-                          **kwargs):
+    def create_api_client(cfg: Cfg):
         # TODO: verify later with ca cert
-        if proxmox_token_name:
+        if cfg.proxmox_token_name:
             log.info("using proxmox_token")
-            return ProxmoxAPI(proxmox_host,
-                              user=proxmox_user,
-                              token_name=proxmox_token_name,
-                              token_value=proxmox_token_value,
-                              verify_ssl=proxmox_verify_ssl)
+            return ProxmoxAPI(cfg.proxmox_host,
+                              user=cfg.proxmox_user,
+                              token_name=cfg.proxmox_token_name,
+                              token_value=cfg.proxmox_token_value,
+                              verify_ssl=cfg.proxmox_verify_ssl)
         log.info("using proxmox_password")
         return ProxmoxAPI(
-            proxmox_host,
-            user=proxmox_user,
-            password=proxmox_password,
+            cfg.proxmox_host,
+            user=cfg.proxmox_user,
+            password=cfg.proxmox_password,
             verify_ssl=False,
         )
 
-    def filter_vm_id(vm_list: list, vm_id: int):
-
+    def filter_vm_id(vm_list: List[VmResponse], vm_id: int):
         for x in vm_list:
-            id = x["vmid"]
-            if str(id) == str(vm_id):
-                log.debug("util.filter_id", x)
+            if str(x.vmid) == str(vm_id):
+                log.debug("util.filter_id", x.vmid)
                 return x
 
         raise VmNotFoundException(vm_id)
 
-    def filter_vm_tag(vm_list: list,
+    def filter_vm_tag(vm_list: List[VmResponse],
                       tag: str,
                       delimiter=config.PROXMOX_VM_TAG_DELIMITER):
 
-        result = []
+        result: List[VmResponse] = []
 
-        for vm in vm_list:
-            id = vm["vmid"]
-            tags = set(vm.get("tags", "").split(delimiter))
+        for x in vm_list:
+            tags = set(x.tags.split(delimiter))
             if tag in tags:
-                result.append(vm)
-        log.debug("util.filter_tag", len(result), result)
+                result.append(x)
+        log.debug("util.filter_tag", len(result),
+                  list(map(lambda x: x.vmid, result)))
         return result
 
 
@@ -125,8 +120,8 @@ class Haproxy:
     def render_backends_config(backends: list):
         content = ""
         for backend in backends:
-            vm_id = backend["vmid"]
-            vm_ip = backend["vmip"]
+            vm_id = backend[0]
+            vm_ip = backend[1]
             # TODO: indent is configurable
             content += 4 * " " + f"server {vm_id} {vm_ip}:6443 check\n"
         return content

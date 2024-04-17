@@ -5,6 +5,7 @@ from proxmoxer import ProxmoxAPI
 from app.error import *
 from app import config
 from app import util
+from app.payload import VmConfigResponse
 
 
 class Vm:
@@ -134,8 +135,9 @@ class Vm:
         vm_id = self.vm_id
 
         r = api.nodes(node).qemu(vm_id).config.get()
-        util.log.debug(node, vm_id, "current_config", r)
-        return r
+        vm_config = VmConfigResponse(**r)
+        util.log.debug(node, vm_id, "current_config", vm_config)
+        return vm_config
 
     def current_status(self):
         api = self.api

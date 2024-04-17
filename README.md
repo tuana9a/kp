@@ -43,6 +43,15 @@ graph TD;
   model-->util;
   util-->config;
   util-->logger;
+  payload-->config;
+  model-->payload;
+  util-->payload;
+  service-->payload;
+  model-->config;
+  service-->config;
+  cli-->config;
+  service-->error;
+  model-->error;
   error;
 ```
 
@@ -64,6 +73,12 @@ pip install -e .
 ```bash
 sudo ln -sf $(which kp) /usr/local/bin/kp
 ```
+
+# Decision / Choise / Explain
+
+immutable infrastructure
+
+converting worker to control plane or in reverse is not straight forward, as `kubeadm reset` leave cni (network), iptables behind so instead of modifing the node just remove it and create a new one.
 
 # Other
 

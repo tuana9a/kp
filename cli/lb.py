@@ -1,5 +1,6 @@
 import urllib3
 
+from app.model.vm import Vm
 from cli.core import Cmd
 from app.model.pve import PveNode
 from app.service.lb import LbService
@@ -26,13 +27,12 @@ class CreateLbCmd(Cmd):
 
     def _run(self):
         urllib3.disable_warnings()
-
         cfg = util.load_config()
-        proxmox_node = cfg["proxmox_node"]
-        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        proxmox_node = cfg.proxmox_node
+        proxmox_client = util.Proxmox.create_api_client(cfg)
         nodectl = PveNode(proxmox_client, proxmox_node)
         service = LbService(nodectl)
-        service.create_lb(**cfg)
+        service.create_lb(cfg)
 
 
 class CopyConfigCmd(Cmd):
@@ -49,10 +49,9 @@ class CopyConfigCmd(Cmd):
         path = args.path
         vm_id = args.vmid
         urllib3.disable_warnings()
-
         cfg = util.load_config()
-        proxmox_node = cfg["proxmox_node"]
-        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        proxmox_node = cfg.proxmox_node
+        proxmox_client = util.Proxmox.create_api_client(cfg)
         nodectl = PveNode(proxmox_client, proxmox_node)
         lbctl = LbVm(nodectl.api, nodectl.node, vm_id)
         with open(path, "r", encoding="utf-8") as f:
@@ -68,21 +67,28 @@ class UpdateConfigCmd(Cmd):
     def _run(self):
         args = self.parsed_args
         urllib3.disable_warnings()
-
         cfg = util.load_config()
-        proxmox_node = cfg["proxmox_node"]
-        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        proxmox_node = cfg.proxmox_node
+        vm_id_range = cfg.vm_id_range
+        proxmox_client = util.Proxmox.create_api_client(cfg)
         nodectl = PveNode(proxmox_client, proxmox_node)
-        lb_vm_list = nodectl.detect_load_balancers(cfg["vm_id_range"])
+        lb_vm_list = nodectl.detect_load_balancers(vm_id_range=vm_id_range)
         if not len(lb_vm_list):
             util.log.info("can't not find load balancers")
-        vm_id = lb_vm_list[0]["vmid"]
+        vm_id = lb_vm_list[0].vmid
         lbctl = LbVm(nodectl.api, nodectl.node, vm_id)
-        with open(cfg["haproxy_cfg"], "r", encoding="utf8") as f:
+        with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
             content = f.read()
-            ctlpl_list = nodectl.detect_control_planes(
-                vm_id_range=cfg["vm_id_range"])
-            backends_content = util.Haproxy.render_backends_config(ctlpl_list)
+            ctlpl_list = nodectl.detect_control_planes(vm_id_range=vm_id_range)
+            backends = []
+            for x in ctlpl_list:
+                vmid = x.vmid
+                ifconfig0 = Vm(nodectl.api, nodectl.node,
+                               vmid).current_config().ifconfig(0)
+                if ifconfig0:
+                    vmip = util.Proxmox.extract_ip(ifconfig0)
+                    backends.append([vmid, vmip])
+            backends_content = util.Haproxy.render_backends_config(backends)
             content = content.format(control_plane_backends=backends_content)
             # if using the roll_lb method then the backends placeholder will
             # not be there, so preserve the old haproxy.cfg
