@@ -36,13 +36,14 @@ See [./examples/config.json](./examples/config.json)
 ```mermaid
 graph TD;
   cli-->service;
-  cli-->controller;
-  service-->controller;
+  cli-->model;
+  service-->model;
   service-->util;
   cli-->util;
-  controller-->util;
-  config;
-  logger;
+  model-->util;
+  util-->config;
+  util-->logger;
+  error;
 ```
 
 # How to use
@@ -62,4 +63,12 @@ pip install -e .
 
 ```bash
 sudo ln -sf $(which kp) /usr/local/bin/kp
+```
+
+# Other
+
+format code
+
+```bash
+find -type f -name '*.py' ! -path 'app/*' -path 'cli/*' -path 'tests/*' -exec autopep8 --in-place --aggressive --aggressive '{}' \;
 ```

@@ -1,21 +1,20 @@
-from app.controller.kube import KubeVmController
+from app.model.kube import KubeVm
 from proxmoxer import ProxmoxAPI
-from app.logger import Logger
 from app import config
+from app import util
 
 
-class ControlPlaneVmController(KubeVmController):
+class ControlPlaneVm(KubeVm):
 
     def __init__(self,
                  api: ProxmoxAPI,
                  node: str,
-                 vm_id: str,
-                 log=Logger.DEBUG) -> None:
-        super().__init__(api, node, vm_id, log)
+                 vm_id: str) -> None:
+        super().__init__(api, node, vm_id)
 
     def drain_node(self,
                    node_name: str,
-                   kubeconfig_filepath="/etc/kubernetes/admin.conf",
+                   kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION,
                    opts=["--ignore-daemonsets", "--delete-emptydir-data"]):
         cmd = [
             "kubectl", f"--kubeconfig={kubeconfig_filepath}", "drain",
@@ -26,7 +25,7 @@ class ControlPlaneVmController(KubeVmController):
 
     def delete_node(self,
                     node_name,
-                    kubeconfig_filepath="/etc/kubernetes/admin.conf"):
+                    kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
         cmd = [
             "kubectl", f"--kubeconfig={kubeconfig_filepath}", "delete", "node",
             node_name
@@ -37,13 +36,13 @@ class ControlPlaneVmController(KubeVmController):
         for d in dirs:
             self.exec(["mkdir", "-p", d], interval_check=3)
 
-    def cat_kubeconfig(self, filepath="/etc/kubernetes/admin.conf"):
+    def cat_kubeconfig(self, filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
         cmd = ["cat", filepath]
         return self.exec(cmd)
 
     def apply_file(self,
                    filepath: str,
-                   kubeconfig_filepath="/etc/kubernetes/admin.conf"):
+                   kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
         cmd = [
             "kubectl", "apply", f"--kubeconfig={kubeconfig_filepath}", "-f",
             filepath

@@ -1,17 +1,15 @@
-from app.controller.vm import VmController
+from app.model.vm import Vm
 from proxmoxer import ProxmoxAPI
-from app.logger import Logger
 from app import config
 
 
-class LbVmController(VmController):
+class LbVm(Vm):
 
     def __init__(self,
                  api: ProxmoxAPI,
                  node: str,
-                 vm_id: str,
-                 log=Logger.DEBUG) -> None:
-        super().__init__(api, node, vm_id, log)
+                 vm_id: str) -> None:
+        super().__init__(api, node, vm_id)
 
     def install_haproxy(self):
         return self.exec(["apt", "install", "-y", "haproxy"])

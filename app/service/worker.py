@@ -1,17 +1,18 @@
 import ipaddress
 
-from app.controller.node import NodeController
-from app.logger import Logger
+from app.model.control_plane import ControlPlaneVm
+from app.model.pve import PveNode
 from app.error import *
 from app import util
 from app import config
+from app.model.vm import Vm
+from app.model.worker import WorkerVm
 
 
 class WorkerService:
 
-    def __init__(self, nodectl: NodeController, log=Logger.DEBUG) -> None:
+    def __init__(self, nodectl: PveNode) -> None:
         self.nodectl = nodectl
-        self.log = log
         pass
 
     def create_worker(self,
@@ -33,7 +34,7 @@ class WorkerService:
                       vm_start_on_boot=1,
                       **kwargs):
         nodectl = self.nodectl
-        log = self.log
+
         r = nodectl.describe_network(vm_network_name)
         network_interface = ipaddress.IPv4Interface(r["cidr"])
         network_gw_ip = str(network_interface.ip) or r["address"]
@@ -42,17 +43,17 @@ class WorkerService:
         for ip in vm_network.hosts():
             ip_pool.append(str(ip))
         preserved_ips.append(network_gw_ip)
-        log.debug("preserved_ips", preserved_ips)
+        util.log.debug("preserved_ips", preserved_ips)
 
         vm_list = nodectl.list_vm(vm_id_range)
         new_vm_id = nodectl.new_vm_id(vm_list, vm_id_range)
         new_vm_ip = nodectl.new_vm_ip(vm_list, ip_pool, preserved_ips)
         new_vm_name = f"{vm_name_prefix}{new_vm_id}"
 
-        log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
+        util.log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
         nodectl.clone(vm_template_id, new_vm_id)
 
-        wkctl = nodectl.wkctl(new_vm_id)
+        wkctl = WorkerVm(nodectl.api, nodectl.node, new_vm_id)
         wkctl.update_config(
             name=new_vm_name,
             cpu="cputype=host",
@@ -71,10 +72,10 @@ class WorkerService:
 
         wkctl.startup()
         wkctl.wait_for_guest_agent()
-        log.info("started vm", new_vm_id)
+        util.log.info("started vm", new_vm_id)
 
         wkctl.wait_for_cloud_init()
-        log.info("waited for cloud-init", new_vm_id)
+        util.log.info("waited for cloud-init", new_vm_id)
 
         vm_install_containerd_location = "/usr/local/bin/install-containerd.sh"
         with open(install_containerd_filepath, "r") as f:
@@ -93,16 +94,20 @@ class WorkerService:
         wkctl.exec(vm_install_kube_location)
 
         if not existed_control_plane_vm_id:
-            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+            ctlpl_vm_list = util.Proxmox.filter_vm_tag(
+                vm_list, config.Tag.ctlpl)
             if len(ctlpl_vm_list):
                 # default to first control plane found
                 existed_control_plane_vm_id = ctlpl_vm_list[0]["vmid"]
-                log.info("existed_control_plane_vm_id",
-                         existed_control_plane_vm_id, "AUTO_DETECT")
+                util.log.info("existed_control_plane_vm_id",
+                              existed_control_plane_vm_id, "AUTO_DETECT")
 
-        ctlplvmctl = nodectl.ctlplvmctl(existed_control_plane_vm_id)
-        join_cmd = ctlplvmctl.kubeadm.create_join_command()
-        log.info("join_cmd", join_cmd)
+        ctlplvmctl = ControlPlaneVm(
+            nodectl.api,
+            nodectl.node,
+            existed_control_plane_vm_id)
+        join_cmd = ctlplvmctl.create_join_command()
+        util.log.info("join_cmd", join_cmd)
         wkctl.exec(join_cmd)
 
         return new_vm_id
@@ -114,32 +119,34 @@ class WorkerService:
                       drain_first=True,
                       **kwargs):
         nodectl = self.nodectl
-        log = self.log
+
         vm_list = nodectl.list_vm(vm_id_range)
-        vm = nodectl.filter_id(vm_list, vm_id)
+        vm = util.Proxmox.filter_vm_id(vm_list, vm_id)
         vm_name = vm["name"]
 
         if not existed_control_plane_vm_id:
-            ctlpl_vm_list = nodectl.filter_tag(vm_list, config.Tag.ctlpl)
+            ctlpl_vm_list = util.Proxmox.filter_vm_tag(
+                vm_list, config.Tag.ctlpl)
             if len(ctlpl_vm_list):
                 # default to first control plane found
                 existed_control_plane_vm_id = ctlpl_vm_list[0]["vmid"]
-                log.info("existed_control_plane_vm_id",
-                         existed_control_plane_vm_id, "AUTO_DETECT")
+                util.log.info("existed_control_plane_vm_id",
+                              existed_control_plane_vm_id, "AUTO_DETECT")
 
         if existed_control_plane_vm_id:
-            ctlplctl = nodectl.ctlplvmctl(existed_control_plane_vm_id)
+            ctlplctl = ControlPlaneVm(
+                nodectl.api, nodectl.node, existed_control_plane_vm_id)
             try:
                 if drain_first:
                     ctlplctl.drain_node(vm_name)
             except Exception as err:
-                log.error(err)
+                util.log.error(err)
             try:
                 ctlplctl.delete_node(vm_name)
             except Exception as err:
-                log.error(err)
+                util.log.error(err)
 
-        vmctl = nodectl.vmctl(vm_id)
+        vmctl = Vm(nodectl.api, nodectl.node, vm_id)
         vmctl.shutdown()
         vmctl.wait_for_shutdown()
         vmctl.delete()

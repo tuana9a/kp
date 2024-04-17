@@ -1,12 +1,13 @@
 import os
 import urllib3
 
+from app import util
 from cli.core import Cmd
-from app.config import load_config
-from app.logger import Logger
-from app.controller.node import NodeController
 from app.service.worker import WorkerService
 from app import config
+from app.model.pve import PveNode
+from app.model.worker import WorkerVm
+from app.model.control_plane import ControlPlaneVm
 
 
 class WorkerCmd(Cmd):
@@ -28,14 +29,13 @@ class CreateWorkerCmd(Cmd):
 
     def _run(self):
         urllib3.disable_warnings()
-        log = Logger.from_env()
 
-        cfg = load_config(log=log)
+        cfg = util.load_config()
         proxmox_node = cfg["proxmox_node"]
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
+        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node)
 
-        service = WorkerService(nodectl, log=log)
+        service = WorkerService(nodectl)
         service.create_worker(**cfg)
 
 
@@ -49,15 +49,15 @@ class DeleteWorkerCmd(Cmd):
 
     def _run(self):
         urllib3.disable_warnings()
-        log = Logger.from_env()
+
         args = self.parsed_args
         vm_id = args.vmid or os.getenv("VMID")
-        log.info("vm_id", vm_id)
-        cfg = load_config(log=log)
+        util.log.info("vm_id", vm_id)
+        cfg = util.load_config()
         proxmox_node = cfg["proxmox_node"]
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
-        service = WorkerService(nodectl, log=log)
+        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node)
+        service = WorkerService(nodectl)
         service.delete_worker(vm_id, **cfg)
 
 
@@ -71,22 +71,22 @@ class JoinWorkerCmd(Cmd):
 
     def _run(self):
         urllib3.disable_warnings()
-        log = Logger.from_env()
+
         args = self.parsed_args
         worker_ids = args.workerids
-        cfg = load_config(log=log)
+        cfg = util.load_config()
         proxmox_node = cfg["proxmox_node"]
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
+        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node)
         control_planes = nodectl.detect_control_planes(cfg["vm_id_range"])
         if not len(control_planes):
-            log.info("can't not find any control planes")
+            util.log.info("can't not find any control planes")
             return
         control_plane_id = control_planes[0]["vmid"]
-        log.info("ctlpl", control_plane_id, "workers", worker_ids)
-        ctlctl = nodectl.ctlplvmctl(control_plane_id)
-        join_cmd = ctlctl.kubeadm.create_join_command()
+        util.log.info("ctlpl", control_plane_id, "workers", worker_ids)
+        ctlctl = ControlPlaneVm(nodectl.api, nodectl.node, control_plane_id)
+        join_cmd = ctlctl.create_join_command()
         for id in worker_ids:
-            wkctl = nodectl.wkctl(id)
+            wkctl = WorkerVm(nodectl.api, nodectl.node, id)
             wkctl.exec(join_cmd)
             wkctl.update_config(tags=[config.Tag.wk, config.Tag.kp])

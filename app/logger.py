@@ -11,7 +11,7 @@ def now():
     return formatted
 
 
-def to_string(msg):
+def to_string(msg: list):
     out = " ".join(list(map(lambda x: str(x), msg)))
     return out
 
@@ -25,10 +25,12 @@ class Logger:
     @staticmethod
     def from_env():
         level = (os.getenv("LOGGER") or "").upper()
-        if level == "DEBUG": return Logger.DEBUG
-        if level == "INFO": return Logger.INFO
-        if level == "WARN": return Logger.WARN
-        if level == "ERROR": return Logger.ERROR
+        if level == "DEBUG":
+            return Logger.DEBUG
+        if level == "INFO":
+            return Logger.INFO
+        if level == "WARN":
+            return Logger.WARN
         return Logger.ERROR
 
     def __init__(self):

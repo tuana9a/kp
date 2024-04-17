@@ -1,10 +1,10 @@
 import os
 import urllib3
 
+from app import util
 from cli.core import Cmd
-from app.config import load_config
-from app.logger import Logger
-from app.controller.node import NodeController
+from app.model.pve import PveNode
+from app.model.vm import Vm
 
 
 class VmCmd(Cmd):
@@ -29,15 +29,15 @@ class RebootVmCmd(Cmd):
     def _run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
-        log = Logger.from_env()
+
         ids = args.ids
-        log.info("vm_ids", ids)
-        cfg = load_config(log=log)
+        util.log.info("vm_ids", ids)
+        cfg = util.load_config()
         proxmox_node = cfg["proxmox_node"]
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
+        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node)
         for id in ids:
-            vmctl = nodectl.vmctl(id)
+            vmctl = Vm(nodectl.api, nodectl.node, id)
             vmctl.reboot()
 
 
@@ -52,15 +52,15 @@ class RemoveVmCmd(Cmd):
     def _run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
-        log = Logger.from_env()
+
         ids = args.ids
-        log.info("vm_ids", ids)
-        cfg = load_config(log=log)
+        util.log.info("vm_ids", ids)
+        cfg = util.load_config()
         proxmox_node = cfg["proxmox_node"]
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
+        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node)
         for id in ids:
-            vmctl = nodectl.vmctl(id)
+            vmctl = Vm(nodectl.api, nodectl.node, id)
             vmctl.shutdown()
             vmctl.wait_for_shutdown()
             vmctl.delete()
@@ -77,15 +77,15 @@ class StartVmCmd(Cmd):
     def _run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
-        log = Logger.from_env()
+
         ids = args.ids
-        log.info("vm_ids", ids)
-        cfg = load_config(log=log)
+        util.log.info("vm_ids", ids)
+        cfg = util.load_config()
         proxmox_node = cfg["proxmox_node"]
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
+        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node)
         for id in ids:
-            vmctl = nodectl.vmctl(id)
+            vmctl = Vm(nodectl.api, nodectl.node, id)
             vmctl.startup()
             vmctl.wait_for_guest_agent()
 
@@ -106,13 +106,13 @@ class CopyFileCmd(Cmd):
         path = args.path
         vm_id = args.vmid
         urllib3.disable_warnings()
-        log = Logger.from_env()
-        log.info("vm_id", vm_id)
-        cfg = load_config(log=log)
+
+        util.log.info("vm_id", vm_id)
+        cfg = util.load_config()
         proxmox_node = cfg["proxmox_node"]
-        proxmox_client = NodeController.create_proxmox_client(**cfg, log=log)
-        nodectl = NodeController(proxmox_client, proxmox_node, log=log)
-        vmctl = nodectl.vmctl(vm_id)
-        log.info(localpath, "->", path)
+        proxmox_client = util.Proxmox.create_api_client(**cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node)
+        vmctl = Vm(nodectl.api, nodectl.node, vm_id)
+        util.log.info(localpath, "->", path)
         with open(localpath, "r", encoding="utf-8") as f:
             vmctl.write_file(path, f.read())
