@@ -228,6 +228,10 @@ class ControlPlaneService:
                 existed_ctlpl_vm_id,
             ).delete_node(vm_name)
 
+        ctlplvmctl.shutdown()
+        ctlplvmctl.wait_for_shutdown()
+        ctlplvmctl.delete()
+
         lbctl = LbVm(nodectl.api, nodectl.node, existed_lb_vm_id)
 
         with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
@@ -249,7 +253,4 @@ class ControlPlaneService:
             lbctl.update_haproxy_config(content)
             lbctl.reload_haproxy()
 
-        ctlplvmctl.shutdown()
-        ctlplvmctl.wait_for_shutdown()
-        ctlplvmctl.delete()
         return vm_id

@@ -206,6 +206,9 @@ class Vm:
 
         r = api.nodes(node).qemu(vm_id).delete()
         util.log.debug(node, vm_id, "delete", r)
+
+        # FIXME: implement wait for deletion
+        time.sleep(5)
         return r
 
     def read_file(self, filepath: str):
