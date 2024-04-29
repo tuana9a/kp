@@ -13,6 +13,7 @@ class Cfg:
             proxmox_token_name: str = None,
             proxmox_token_value: str = None,
             vm_id_range: List[int] = config.PROXMOX_VM_ID_RANGE,
+            vm_preserved_ids: List[int] = [],
             vm_preserved_ips: List[str] = [],
             vm_template_id: int = None,
             vm_network_name: str = None,
@@ -41,6 +42,7 @@ class Cfg:
         self.proxmox_token_name = proxmox_token_name
         self.proxmox_token_value = proxmox_token_value
         self.vm_id_range = vm_id_range
+        self.vm_preserved_ids = vm_preserved_ids
         self.vm_preserved_ips = vm_preserved_ips
         self.vm_template_id = vm_template_id
         self.vm_network_name = vm_network_name

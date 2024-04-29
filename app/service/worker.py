@@ -23,16 +23,9 @@ class WorkerService:
         r = nodectl.describe_network(cfg.vm_network_name)
         network_interface = ipaddress.IPv4Interface(r["cidr"])
         network_gw_ip = str(network_interface.ip) or r["address"]
-        vm_network = network_interface.network
-        ip_pool = []
-        for ip in vm_network.hosts():
-            ip_pool.append(str(ip))
-        cfg.vm_preserved_ips.append(network_gw_ip)
-        util.log.debug("preserved_ips", cfg.vm_preserved_ips)
 
-        vm_list = nodectl.list_vm(cfg.vm_id_range)
-        new_vm_id = nodectl.new_vm_id(vm_list, cfg.vm_id_range)
-        new_vm_ip = nodectl.new_vm_ip(vm_list, ip_pool, cfg.vm_preserved_ips)
+        new_vm_id = nodectl.new_vm_id()
+        new_vm_ip = nodectl.new_vm_ip()
         new_vm_name = f"{cfg.vm_name_prefix}{new_vm_id}"
 
         util.log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
@@ -78,20 +71,18 @@ class WorkerService:
         wkctl.exec(f"chmod +x {vm_install_kube_location}")
         wkctl.exec(vm_install_kube_location)
 
-        cfg.existed_control_plane_vm_id = None
-        if not cfg.existed_control_plane_vm_id:
-            ctlpl_vm_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-                vm_list, config.Tag.ctlpl)
-            if len(ctlpl_vm_list):
-                # default to first control plane found
-                cfg.existed_control_plane_vm_id = ctlpl_vm_list[0].vmid
-                util.log.info("existed_control_plane_vm_id",
-                              cfg.existed_control_plane_vm_id, "AUTO_DETECT")
+        existed_control_plane_vm_id = None
+        ctlpl_vm_list: List[VmResponse] = nodectl.detect_control_planes()
+        if len(ctlpl_vm_list):
+            # default to first control plane found
+            existed_control_plane_vm_id = ctlpl_vm_list[0].vmid
+            util.log.info("existed_control_plane_vm_id",
+                          existed_control_plane_vm_id, "AUTO_DETECT")
 
         ctlplvmctl = ControlPlaneVm(
             nodectl.api,
             nodectl.node,
-            cfg.existed_control_plane_vm_id)
+            existed_control_plane_vm_id)
         join_cmd = ctlplvmctl.create_join_command()
         util.log.info("join_cmd", join_cmd)
         wkctl.exec(join_cmd)
@@ -105,7 +96,7 @@ class WorkerService:
                       **kwargs):
         nodectl = self.nodectl
 
-        vm_list = nodectl.list_vm(cfg.vm_id_range)
+        vm_list = nodectl.list_vm()
         vm: VmResponse = util.Proxmox.filter_vm_id(vm_list, vm_id)
         vm_name = vm.name
 

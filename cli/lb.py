@@ -16,6 +16,7 @@ class LbCmd(Cmd):
                          childs=[
                              CreateLbCmd(),
                              CopyConfigCmd(),
+                             ReadConfigCmd(),
                              UpdateConfigCmd(),
                          ])
 
@@ -30,7 +31,7 @@ class CreateLbCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         service = LbService(nodectl)
         service.create_lb(cfg)
 
@@ -52,7 +53,7 @@ class CopyConfigCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         lbctl = LbVm(nodectl.api, nodectl.node, vm_id)
         with open(path, "r", encoding="utf-8") as f:
             lbctl.write_file(config.HAPROXY_CONFIG_LOCATION, f.read())
@@ -65,21 +66,19 @@ class UpdateConfigCmd(Cmd):
         super().__init__("update-config")
 
     def _run(self):
-        args = self.parsed_args
         urllib3.disable_warnings()
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
-        vm_id_range = cfg.vm_id_range
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
-        lb_vm_list = nodectl.detect_load_balancers(vm_id_range=vm_id_range)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
+        lb_vm_list = nodectl.detect_load_balancers()
         if not len(lb_vm_list):
             util.log.info("can't not find load balancers")
         vm_id = lb_vm_list[0].vmid
         lbctl = LbVm(nodectl.api, nodectl.node, vm_id)
         with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
             content = f.read()
-            ctlpl_list = nodectl.detect_control_planes(vm_id_range=vm_id_range)
+            ctlpl_list = nodectl.detect_control_planes()
             backends = []
             for x in ctlpl_list:
                 vmid = x.vmid
@@ -94,3 +93,22 @@ class UpdateConfigCmd(Cmd):
             # not be there, so preserve the old haproxy.cfg
             lbctl.update_haproxy_config(content)
             lbctl.reload_haproxy()
+
+
+class ReadConfigCmd(Cmd):
+
+    def __init__(self) -> None:
+        super().__init__("read-config")
+
+    def _run(self):
+        urllib3.disable_warnings()
+        cfg = util.load_config()
+        proxmox_node = cfg.proxmox_node
+        proxmox_client = util.Proxmox.create_api_client(cfg)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
+        lb_vm_list = nodectl.detect_load_balancers()
+        if not len(lb_vm_list):
+            util.log.info("can't not find load balancers")
+        vm_id = lb_vm_list[0].vmid
+        lbctl = LbVm(nodectl.api, nodectl.node, vm_id)
+        print(lbctl.read_haproxy_config()["content"])

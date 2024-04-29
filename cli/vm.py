@@ -35,7 +35,7 @@ class RebootVmCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         for id in ids:
             vmctl = Vm(nodectl.api, nodectl.node, id)
             vmctl.reboot()
@@ -57,7 +57,7 @@ class RemoveVmCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         for id in ids:
             vmctl = Vm(nodectl.api, nodectl.node, id)
             vmctl.shutdown()
@@ -82,7 +82,7 @@ class StartVmCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         for id in ids:
             vmctl = Vm(nodectl.api, nodectl.node, id)
             vmctl.startup()
@@ -109,7 +109,7 @@ class CopyFileCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         vmctl = Vm(nodectl.api, nodectl.node, vm_id)
         util.log.info(localpath, "->", path)
         with open(localpath, "r", encoding="utf-8") as f:

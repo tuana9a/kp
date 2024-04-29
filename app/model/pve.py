@@ -1,3 +1,5 @@
+import ipaddress
+
 from proxmoxer import ProxmoxAPI
 from app.model.vm import Vm
 from app.error import *
@@ -9,9 +11,13 @@ from typing import List
 
 class PveNode:
 
-    def __init__(self, api: ProxmoxAPI, node: str) -> None:
+    def __init__(self, api: ProxmoxAPI, node: str, cfg: Cfg) -> None:
         self.api = api
         self.node = node
+        self.cfg = cfg
+        self.vm_id_range = cfg.vm_id_range
+        self.vm_preserved_ids = cfg.vm_preserved_ids
+        self.vm_preserved_ips = cfg.vm_preserved_ips
         pass
 
     def clone(self, old_id, new_id):
@@ -22,9 +28,11 @@ class PveNode:
         util.log.info(node, "clone", old_id, new_id)
         return r
 
-    def list_vm(self, id_range=config.PROXMOX_VM_ID_RANGE):
+    # TODO: cache
+    def list_vm(self):
         api = self.api
         node = self.node
+        id_range = self.vm_id_range
 
         r = api.nodes(node).qemu.get()
         vm_list: List[VmResponse] = []
@@ -44,10 +52,9 @@ class PveNode:
         util.log.debug(node, "describe_network", r)
         return r
 
-    def new_vm_id(self,
-                  vm_list: List[VmResponse] = [],
-                  id_range=config.PROXMOX_VM_ID_RANGE,
-                  preserved_ids=[]):
+    def new_vm_id(self, preserved_ids=[]):
+        vm_list = self.list_vm()
+        id_range = self.vm_id_range
         exist_ids = set()
         exist_ids.update(preserved_ids)
         for vm in vm_list:
@@ -60,11 +67,20 @@ class PveNode:
             raise GetNewVmIdFailed()
         return new_id
 
-    def new_vm_ip(
-            self,
-            vm_list: List[VmResponse] = [],
-            ip_pool=[],
-            preserved_ips=[]):
+    def new_vm_ip(self):
+        node = self.node
+        network_name = self.cfg.vm_network_name
+        preserved_ips = self.vm_preserved_ips
+        r = self.describe_network(network_name)
+        network_interface = ipaddress.IPv4Interface(r["cidr"])
+        network_gw_ip = str(network_interface.ip) or r["address"]
+        vm_network = network_interface.network
+        ip_pool = []
+        for vmip in vm_network.hosts():
+            ip_pool.append(str(vmip))
+        preserved_ips.append(network_gw_ip)
+        util.log.debug(node, network_name, "preserved_ips", preserved_ips)
+        vm_list = self.list_vm()
         exist_ips = set()
         exist_ips.update(preserved_ips)
         for vm in vm_list:
@@ -83,26 +99,22 @@ class PveNode:
             raise GetNewVmIpFailed()
         return new_ip
 
-    def detect_control_planes(self,
-                              vm_id_range=config.PROXMOX_VM_ID_RANGE,
-                              **kwargs):
+    def detect_control_planes(self, **kwargs):
         """
         automatically scan the control planes by tag
         """
         ctlpl_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            self.list_vm(vm_id_range),
+            self.list_vm(),
             config.Tag.ctlpl)
         util.log.info("detect_control_planes", len(ctlpl_list))
         return ctlpl_list
 
-    def detect_load_balancers(self,
-                              vm_id_range=config.PROXMOX_VM_ID_RANGE,
-                              **kwargs):
+    def detect_load_balancers(self, **kwargs):
         """
         automatically scan the control planes by tag
         """
         lb_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            self.list_vm(vm_id_range),
+            self.list_vm(),
             config.Tag.lb)
         util.log.info("detect_load_balancers", len(lb_list))
         return lb_list

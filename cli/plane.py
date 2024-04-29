@@ -2,13 +2,11 @@ import os
 import urllib3
 
 from app.model.plane import ControlPlaneVm
-from app.model.vm import Vm
 from cli.core import Cmd
 from app.model.pve import PveNode
 from app.service.plane import ControlPlaneService
 from app import util
 from app import config
-from app.model.lb import LbVm
 
 
 class ControlPlaneCmd(Cmd):
@@ -35,7 +33,7 @@ class CreateControlPlaneCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         service = ControlPlaneService(nodectl)
         service.create_control_plane(cfg)
 
@@ -56,7 +54,7 @@ class DeleteControlPlaneCmd(Cmd):
         util.log.info("vm_id", vm_id)
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         clusterctl = ControlPlaneService(nodectl)
         clusterctl.delete_control_plane(cfg, vm_id)
 
@@ -89,7 +87,7 @@ class ViewKubeConfigCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         ctlplvmctl = ControlPlaneVm(nodectl.api, nodectl.node, vm_id)
         _, stdout, _ = ctlplvmctl.cat_kubeconfig(filepath)
         print(stdout)
@@ -119,7 +117,7 @@ class SaveKubeConfigCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         ctlplvmctl = ControlPlaneVm(nodectl.api, nodectl.node, vm_id)
         _, stdout, _ = ctlplvmctl.cat_kubeconfig(filepath)
         with open(output, "w") as f:
@@ -144,7 +142,7 @@ class CopyKubeCertsCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         ControlPlaneVm(nodectl.api, nodectl.node, dest_id).ensure_cert_dirs()
         service = ControlPlaneService(nodectl)
         service.copy_kube_certs(source_id, dest_id)
@@ -165,11 +163,10 @@ class JoinControlPlaneCmd(Cmd):
         child_ids_set = set(control_plane_ids)
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
-        vm_id_range = cfg.vm_id_range
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         service = ControlPlaneService(nodectl)
-        ctlpl_list = nodectl.detect_control_planes(vm_id_range=vm_id_range)
+        ctlpl_list = nodectl.detect_control_planes()
 
         if not len(ctlpl_list):
             util.log.info("can't find any control planes")
@@ -187,14 +184,6 @@ class JoinControlPlaneCmd(Cmd):
 
         util.log.info("dad", control_plane_id, "childs", control_plane_ids)
 
-        lb_vm_list = nodectl.detect_load_balancers(vm_id_range)
-
-        if not len(lb_vm_list):
-            util.log.info("can't not find load balancers")
-            return
-
-        lb_vm_id = lb_vm_list[0].vmid
-        lbctl = LbVm(nodectl.api, nodectl.node, lb_vm_id)
         dadctl = ControlPlaneVm(nodectl.api, nodectl.node, control_plane_id)
         join_cmd = dadctl.create_join_command(is_control_plane=True)
 
@@ -206,21 +195,3 @@ class JoinControlPlaneCmd(Cmd):
             service.copy_kube_certs(control_plane_id, id)
             ctlplvmctl.exec(join_cmd)
             ctlplvmctl.update_config(tags=[config.Tag.ctlpl, config.Tag.kp])
-
-        with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
-            content = f.read()
-            ctlpl_list = nodectl.detect_control_planes(vm_id_range=vm_id_range)
-            backends = []
-            for x in ctlpl_list:
-                vmid = x.vmid
-                ifconfig0 = Vm(nodectl.api, nodectl.node,
-                               vmid).current_config().ifconfig(0)
-                if ifconfig0:
-                    vmip = util.Proxmox.extract_ip(ifconfig0)
-                    backends.append([vmid, vmip])
-            backends_content = util.Haproxy.render_backends_config(backends)
-            content = content.format(control_plane_backends=backends_content)
-            # if using the roll_lb method then the backends placeholder will
-            # not be there, so preserve the old haproxy.cfg
-            lbctl.update_haproxy_config(content)
-            lbctl.reload_haproxy()

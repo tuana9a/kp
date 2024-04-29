@@ -14,6 +14,10 @@ class LbVm(Vm):
     def install_haproxy(self):
         return self.exec(["apt", "install", "-y", "haproxy"])
 
+    def read_haproxy_config(self,
+                            config_path=config.HAPROXY_CONFIG_LOCATION):
+        return self.read_file(config_path)
+
     def update_haproxy_config(self,
                               config_content: str,
                               config_path=config.HAPROXY_CONFIG_LOCATION):

@@ -49,16 +49,9 @@ class ControlPlaneService:
         r = nodectl.describe_network(cfg.vm_network_name)
         network_interface = ipaddress.IPv4Interface(r["cidr"])
         network_gw_ip = str(network_interface.ip) or r["address"]
-        vm_network = network_interface.network
-        ip_pool = []
-        for ip in vm_network.hosts():
-            ip_pool.append(str(ip))
-        cfg.vm_preserved_ips.append(network_gw_ip)
-        util.log.debug("preserved_ips", cfg.vm_preserved_ips)
 
-        vm_list = nodectl.list_vm(cfg.vm_id_range)
-        new_vm_id = nodectl.new_vm_id(vm_list, cfg.vm_id_range)
-        new_vm_ip = nodectl.new_vm_ip(vm_list, ip_pool, cfg.vm_preserved_ips)
+        new_vm_id = nodectl.new_vm_id()
+        new_vm_ip = nodectl.new_vm_ip()
         new_vm_name = f"{cfg.vm_name_prefix}{new_vm_id}"
 
         util.log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
@@ -88,24 +81,23 @@ class ControlPlaneService:
         vm_install_containerd_location = "/usr/local/bin/install-containerd.sh"
         with open(cfg.install_containerd_filepath, "r") as f:
             ctlplvmctl.write_file(vm_install_containerd_location, f.read())
-        ctlplvmctl.exec(f"chmod +x {vm_install_containerd_location}")
-        ctlplvmctl.exec(vm_install_containerd_location)
+            ctlplvmctl.exec(f"chmod +x {vm_install_containerd_location}")
+            ctlplvmctl.exec(vm_install_containerd_location)
 
         with open(cfg.containerd_config_filepath) as f:
             ctlplvmctl.write_file("/etc/containerd/config.toml", f.read())
-        ctlplvmctl.exec("systemctl restart containerd")
+            ctlplvmctl.exec("systemctl restart containerd")
 
         vm_install_kube_location = "/usr/local/bin/install-kube.sh"
         with open(cfg.install_kube_filepath, "r") as f:
             ctlplvmctl.write_file(vm_install_kube_location, f.read())
-        ctlplvmctl.exec(f"chmod +x {vm_install_kube_location}")
-        ctlplvmctl.exec(vm_install_kube_location)
+            ctlplvmctl.exec(f"chmod +x {vm_install_kube_location}")
+            ctlplvmctl.exec(vm_install_kube_location)
 
-        ctlpl_vm_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            vm_list, config.Tag.lb)
         existed_lb_vm_id = None
-        if len(ctlpl_vm_list):
-            existed_lb_vm_id = ctlpl_vm_list[0].vmid
+        lb_vm_list: List[VmResponse] = nodectl.detect_load_balancers()
+        if len(lb_vm_list):
+            existed_lb_vm_id = lb_vm_list[0].vmid
             util.log.info("existed_lb_vm_id", existed_lb_vm_id, "AUTO_DETECT")
 
         is_multiple_control_planes = bool(existed_lb_vm_id)
@@ -128,28 +120,7 @@ class ControlPlaneService:
             return new_vm_id
 
         # SECTION: stacked control plane
-        lbctl = LbVm(nodectl.api, nodectl.node, existed_lb_vm_id)
-        with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
-            content = f.read()
-            ctlpl_list = nodectl.detect_control_planes(
-                vm_id_range=cfg.vm_id_range)
-            backends = []
-            for x in ctlpl_list:
-                vmid = x.vmid
-                ifconfig0 = Vm(nodectl.api, nodectl.node,
-                               vmid).current_config().ifconfig(0)
-                if ifconfig0:
-                    vmip = util.Proxmox.extract_ip(ifconfig0)
-                    backends.append([vmid, vmip])
-            backends_content = util.Haproxy.render_backends_config(backends)
-            content = content.format(control_plane_backends=backends_content)
-            # if using the roll_lb method then the backends placeholder will
-            # not be there, so preserve the old haproxy.cfg
-            lbctl.update_haproxy_config(content)
-            lbctl.reload_haproxy()
-
-        ctlpl_vm_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            vm_list, config.Tag.ctlpl)
+        ctlpl_vm_list: List[VmResponse] = nodectl.detect_control_planes()
         existed_ctlpl_vm_id = None
         for ctlpl_vm in ctlpl_vm_list:
             ctlpl_vm_id = ctlpl_vm.vmid
@@ -172,6 +143,7 @@ class ControlPlaneService:
             return new_vm_id
 
         # EXPLAIN: init a fresh new control plane
+        lbctl = LbVm(nodectl.api, nodectl.node, existed_lb_vm_id)
         lb_ifconfig0 = lbctl.current_config().ifconfig(0)
         if not lb_ifconfig0:
             raise Exception("can not detect control_plane_endpoint")
@@ -191,7 +163,7 @@ class ControlPlaneService:
     def delete_control_plane(self, cfg: Cfg, vm_id):
         nodectl = self.nodectl
 
-        vm_list = nodectl.list_vm(cfg.vm_id_range)
+        vm_list = nodectl.list_vm()
         vm: VmResponse = util.Proxmox.filter_vm_id(vm_list, vm_id)
         vm_name = vm.name
         ctlplvmctl = ControlPlaneVm(nodectl.api, nodectl.node, vm_id)
@@ -204,7 +176,7 @@ class ControlPlaneService:
         except Exception as err:
             util.log.error(err)
 
-        lb_vm_list = nodectl.detect_load_balancers(vm_id_range=cfg.vm_id_range)
+        lb_vm_list = nodectl.detect_load_balancers()
         if len(lb_vm_list):
             existed_lb_vm_id = lb_vm_list[0].vmid
 
@@ -215,7 +187,7 @@ class ControlPlaneService:
             return
 
         existed_ctlpl_vm_id = None
-        for x in nodectl.detect_control_planes(vm_id_range=cfg.vm_id_range):
+        for x in nodectl.detect_control_planes():
             ctlpl_vm_id = x.vmid
             if ctlpl_vm_id != vm_id:
                 existed_ctlpl_vm_id = ctlpl_vm_id
@@ -231,26 +203,5 @@ class ControlPlaneService:
         ctlplvmctl.shutdown()
         ctlplvmctl.wait_for_shutdown()
         ctlplvmctl.delete()
-
-        lbctl = LbVm(nodectl.api, nodectl.node, existed_lb_vm_id)
-
-        with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
-            content = f.read()
-            ctlpl_list = nodectl.detect_control_planes(
-                vm_id_range=cfg.vm_id_range)
-            backends = []
-            for x in ctlpl_list:
-                vmid = x.vmid
-                ifconfig0 = Vm(nodectl.api, nodectl.node,
-                               vmid).current_config().ifconfig(0)
-                if ifconfig0:
-                    vmip = util.Proxmox.extract_ip(ifconfig0)
-                    backends.append([vmid, vmip])
-            backends_content = util.Haproxy.render_backends_config(backends)
-            content = content.format(control_plane_backends=backends_content)
-            # if using the roll_lb method then the backends placeholder will
-            # not be there, so preserve the old haproxy.cfg
-            lbctl.update_haproxy_config(content)
-            lbctl.reload_haproxy()
 
         return vm_id

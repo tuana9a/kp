@@ -21,16 +21,9 @@ class LbService:
         r = nodectl.describe_network(cfg.vm_network_name)
         network_interface = ipaddress.IPv4Interface(r["cidr"])
         network_gw_ip = str(network_interface.ip) or r["address"]
-        vm_network = network_interface.network
-        ip_pool = []
-        for vmip in vm_network.hosts():
-            ip_pool.append(str(vmip))
-        cfg.vm_preserved_ips.append(network_gw_ip)
-        util.log.debug("preserved_ips", cfg.vm_preserved_ips)
 
-        vm_list: List[VmResponse] = nodectl.list_vm(cfg.vm_id_range)
-        new_vm_id = nodectl.new_vm_id(vm_list, cfg.vm_id_range)
-        new_vm_ip = nodectl.new_vm_ip(vm_list, ip_pool, cfg.vm_preserved_ips)
+        new_vm_id = nodectl.new_vm_id()
+        new_vm_ip = nodectl.new_vm_ip()
         new_vm_name = f"{cfg.vm_name_prefix}{new_vm_id}"
 
         util.log.info("new_vm", new_vm_id, new_vm_name, new_vm_ip)
@@ -64,8 +57,7 @@ class LbService:
 
         with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
             content = f.read()
-            ctlpl_list = nodectl.detect_control_planes(
-                vm_id_range=cfg.vm_id_range)
+            ctlpl_list = nodectl.detect_control_planes()
             backends = []
             for x in ctlpl_list:
                 vmid = x.vmid

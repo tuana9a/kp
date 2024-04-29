@@ -32,7 +32,7 @@ class CreateWorkerCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         service = WorkerService(nodectl)
         service.create_worker(cfg)
 
@@ -53,7 +53,7 @@ class DeleteWorkerCmd(Cmd):
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
         service = WorkerService(nodectl)
         service.delete_worker(cfg, vm_id)
 
@@ -72,10 +72,9 @@ class JoinWorkerCmd(Cmd):
         worker_ids = args.workerids
         cfg = util.load_config()
         proxmox_node = cfg.proxmox_node
-        vm_id_range = cfg.vm_id_range
         proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node)
-        control_planes = nodectl.detect_control_planes(vm_id_range=vm_id_range)
+        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
+        control_planes = nodectl.detect_control_planes()
         if not len(control_planes):
             util.log.info("can't not find any control planes")
             return
