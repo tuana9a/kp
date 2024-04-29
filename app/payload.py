@@ -30,7 +30,6 @@ class Cfg:
             install_kubectl_filepath: str = None,
             containerd_config_filepath: str = "./examples/containerd/config.toml",
             haproxy_cfg: str = "./examples/haproxy.cfg",
-            cni_manifest_file: str = "./examples/kube-flannel.yaml",
             pod_cidr="10.244.0.0/16",
             svc_cidr="10.233.0.0/16",
             **kwargs) -> None:
@@ -59,7 +58,6 @@ class Cfg:
         self.install_kubectl_filepath = install_kubectl_filepath
         self.containerd_config_filepath = containerd_config_filepath
         self.haproxy_cfg = haproxy_cfg
-        self.cni_manifest_file = cni_manifest_file
         self.pod_cidr = pod_cidr
         self.svc_cidr = svc_cidr
         self.kwargs = kwargs

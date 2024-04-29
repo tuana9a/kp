@@ -108,15 +108,6 @@ class ControlPlaneService:
             ctlplvmctl.kubeadm_init(control_plane_endpoint=new_vm_ip,
                                     pod_cidr=cfg.pod_cidr,
                                     svc_cidr=cfg.svc_cidr)
-
-            if not cfg.cni_manifest_file:
-                util.log.info("skip apply cni step")
-                return new_vm_id
-
-            cni_filepath = "/root/cni.yaml"
-            with open(cfg.cni_manifest_file, "r", encoding="utf-8") as f:
-                ctlplvmctl.write_file(cni_filepath, f.read())
-                ctlplvmctl.apply_file(cni_filepath)
             return new_vm_id
 
         # SECTION: stacked control plane
@@ -152,12 +143,6 @@ class ControlPlaneService:
         ctlplvmctl.kubeadm_init(control_plane_endpoint=control_plane_endpoint,
                                 pod_cidr=cfg.pod_cidr,
                                 svc_cidr=cfg.svc_cidr)
-
-        if cfg.cni_manifest_file:
-            cni_filepath = "/root/cni.yaml"
-            with open(cfg.cni_manifest_file, "r", encoding="utf-8") as f:
-                ctlplvmctl.write_file(cni_filepath, f.read())
-                ctlplvmctl.apply_file(cni_filepath)
         return new_vm_id
 
     def delete_control_plane(self, cfg: Cfg, vm_id):
