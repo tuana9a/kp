@@ -38,7 +38,7 @@ class ControlPlaneVm(KubeVm):
 
     def cat_kubeconfig(self, filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
         cmd = ["cat", filepath]
-        return self.exec(cmd)
+        return self.exec(cmd, interval_check=2)
 
     def apply_file(self,
                    filepath: str,

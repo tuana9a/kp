@@ -25,7 +25,34 @@ iface vmbr56 inet static
 
 Installing `qemu-guest-agent` is required
 
-See [gitlab.com/tuana9a/cloud-img](https://gitlab.com/tuana9a/cloud-img)
+```bash
+#!/bin/bash
+
+base_img_file=jammy-server-cloudimg-amd64.img
+img_file=jammy.img
+
+wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img -O $base_img_file
+
+cp $base_img_file $img_file
+
+virt-customize -a $img_file --install qemu-guest-agent
+virt-customize -a $img_file --install nfs-common # https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner
+virt-customize -a $img_file --timezone Asia/Ho_Chi_Minh
+
+img_file=jammy.img
+storage=
+vmid=
+core_count=
+mem_size=
+
+qm create $vmid --cores ${core_count:-2} --memory ${mem_size:-2048} --scsihw virtio-scsi-pci
+qm set $vmid --scsi0 $storage:0,import-from=$PWD/$img_file
+qm set $vmid --ide2 $storage:cloudinit
+qm set $vmid --boot order=scsi0
+qm set $vmid --serial0 socket --vga serial0
+qm set $vmid --name jammy
+qm template $vmid
+```
 
 # Prepare the config.json
 

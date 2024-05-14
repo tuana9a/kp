@@ -20,7 +20,7 @@ class ControlPlaneCmd(Cmd):
                              CopyKubeCertsCmd(),
                              JoinControlPlaneCmd(),
                          ],
-                         aliases=["ctlpl"])
+                         aliases=["ctlpl", "plane"])
 
 
 class CreateControlPlaneCmd(Cmd):

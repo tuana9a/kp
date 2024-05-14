@@ -109,7 +109,7 @@ class Proxmox:
             tags = set(x.tags.split(delimiter))
             if tag in tags:
                 result.append(x)
-        log.debug("util.filter_tag", len(result),
+        log.debug("util.filter_tag", tag,
                   list(map(lambda x: x.vmid, result)))
         return result
 
