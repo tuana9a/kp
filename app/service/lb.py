@@ -52,26 +52,22 @@ class LbService:
 
         lbctl.install_haproxy()
 
-        if not os.path.exists(cfg.haproxy_cfg):
-            raise FileNotFoundError(cfg.haproxy_cfg)
-
-        with open(cfg.haproxy_cfg, "r", encoding="utf8") as f:
-            content = f.read()
-            ctlpl_list = nodectl.detect_control_planes()
-            backends = []
-            for x in ctlpl_list:
-                vmid = x.vmid
-                ifconfig0 = Vm(nodectl.api, nodectl.node,
-                               vmid).current_config().ifconfig(0)
-                if ifconfig0:
-                    vmip = util.Proxmox.extract_ip(ifconfig0)
-                    backends.append([vmid, vmip])
-            backends_content = util.Haproxy.render_backends_config(backends)
-            content = content.format(control_plane_backends=backends_content)
-            # if using the roll_lb method then the backends placeholder will
-            # not be there, so preserve the old haproxy.cfg
-            lbctl.update_haproxy_config(content)
-            lbctl.reload_haproxy()
+        ctlpl_list = nodectl.detect_control_planes()
+        backends = []
+        for x in ctlpl_list:
+            vmid = x.vmid
+            ifconfig0 = Vm(nodectl.api, nodectl.node,
+                           vmid).current_config().ifconfig(0)
+            if ifconfig0:
+                vmip = util.Proxmox.extract_ip(ifconfig0)
+                backends.append([vmid, vmip])
+        backends_content = util.Haproxy.render_backends_config(backends)
+        content = config.HAPROXY_CONFIG_TEMPLATE.format(
+            control_plane_backends=backends_content)
+        # if using the roll_lb method then the backends placeholder will
+        # not be there, so preserve the old haproxy.cfg
+        lbctl.update_haproxy_config(content)
+        lbctl.reload_haproxy()
 
         if cfg.install_kubectl_filepath:
             vm_install_kubectl_location = "/usr/local/bin/install-kubectl.sh"

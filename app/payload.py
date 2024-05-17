@@ -29,7 +29,6 @@ class Cfg:
             install_containerd_filepath: str = "./examples/install-containerd.sh",
             install_kubectl_filepath: str = None,
             containerd_config_filepath: str = "./examples/containerd/config.toml",
-            haproxy_cfg: str = "./examples/haproxy.cfg",
             pod_cidr="10.244.0.0/16",
             svc_cidr="10.233.0.0/16",
             **kwargs) -> None:
@@ -57,7 +56,6 @@ class Cfg:
         self.install_containerd_filepath = install_containerd_filepath
         self.install_kubectl_filepath = install_kubectl_filepath
         self.containerd_config_filepath = containerd_config_filepath
-        self.haproxy_cfg = haproxy_cfg
         self.pod_cidr = pod_cidr
         self.svc_cidr = svc_cidr
         self.kwargs = kwargs

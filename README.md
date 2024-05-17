@@ -56,7 +56,7 @@ qm template $vmid
 
 # Prepare the config.json
 
-See [./examples/config.json](./examples/config.json)
+See [./app/payload.py#Cfg](./app/payload.py#Cfg)
 
 # Code structure
 

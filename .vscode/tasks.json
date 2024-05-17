@@ -4,14 +4,10 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run as Bash Script",
+            "label": "autopep8",
             "type": "shell",
             "command": "cd ${workspaceFolder} && source .venv/bin/activate && find ./app ./tests ./cli -name '*.py' -exec autopep8 -v --in-place --aggressive --aggressive '{}' \\;",
             "problemMatcher": [],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
         }
     ]
 }
