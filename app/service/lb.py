@@ -50,7 +50,11 @@ class LbService:
         lbctl.wait_for_guest_agent()
         lbctl.wait_for_cloud_init()
 
-        lbctl.install_haproxy()
+        userdata_location = "/usr/local/bin/userdata.sh"
+        with open(cfg.userdata_loadbalancer_filepath, "r") as f:
+            lbctl.write_file(userdata_location, f.read())
+        lbctl.exec(f"chmod +x {userdata_location}")
+        lbctl.exec(userdata_location)
 
         ctlpl_list = nodectl.detect_control_planes()
         backends = []
@@ -68,12 +72,5 @@ class LbService:
         # not be there, so preserve the old haproxy.cfg
         lbctl.update_haproxy_config(content)
         lbctl.reload_haproxy()
-
-        if cfg.install_kubectl_filepath:
-            vm_install_kubectl_location = "/usr/local/bin/install-kubectl.sh"
-            with open(cfg.install_kubectl_filepath, "r") as f:
-                lbctl.write_file(vm_install_kubectl_location, f.read())
-            lbctl.exec(f"chmod +x {vm_install_kubectl_location}")
-            lbctl.exec(vm_install_kubectl_location)
 
         return new_vm_id

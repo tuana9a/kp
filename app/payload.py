@@ -25,9 +25,9 @@ class Cfg:
             vm_username="u",
             vm_password="1",
             vm_start_on_boot=1,
-            install_kube_filepath: str = "./examples/install-kube-1.27.sh",
-            install_containerd_filepath: str = "./examples/install-containerd.sh",
-            install_kubectl_filepath: str = None,
+            userdata_worker_filepath: str = "./examples/userdata/worker-1.28.sh",
+            userdata_loadbalancer_filepath: str = "./examples/userdata/loadbalancer.sh",
+            userdata_control_plane_filepath: str = "./examples/userdata/control-plane-1.28.sh",
             containerd_config_filepath: str = "./examples/containerd/config.toml",
             pod_cidr="10.244.0.0/16",
             svc_cidr="10.233.0.0/16",
@@ -52,9 +52,9 @@ class Cfg:
         self.vm_username = vm_username
         self.vm_password = vm_password
         self.vm_start_on_boot = vm_start_on_boot
-        self.install_kube_filepath = install_kube_filepath
-        self.install_containerd_filepath = install_containerd_filepath
-        self.install_kubectl_filepath = install_kubectl_filepath
+        self.userdata_worker_filepath = userdata_worker_filepath
+        self.userdata_loadbalancer_filepath = userdata_loadbalancer_filepath
+        self.userdata_control_plane_filepath = userdata_control_plane_filepath
         self.containerd_config_filepath = containerd_config_filepath
         self.pod_cidr = pod_cidr
         self.svc_cidr = svc_cidr

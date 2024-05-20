@@ -55,21 +55,16 @@ class WorkerService:
         wkctl.wait_for_cloud_init()
         util.log.info("waited for cloud-init", new_vm_id)
 
-        vm_install_containerd_location = "/usr/local/bin/install-containerd.sh"
-        with open(cfg.install_containerd_filepath, "r") as f:
-            wkctl.write_file(vm_install_containerd_location, f.read())
-        wkctl.exec(f"chmod +x {vm_install_containerd_location}")
-        wkctl.exec(vm_install_containerd_location)
+        userdata_location = "/usr/local/bin/userdata.sh"
+        with open(cfg.userdata_worker_filepath, "r") as f:
+            wkctl.write_file(userdata_location, f.read())
+        wkctl.exec(f"chmod +x {userdata_location}")
+        wkctl.exec(userdata_location)
 
         with open(cfg.containerd_config_filepath) as f:
             wkctl.write_file("/etc/containerd/config.toml", f.read())
-        wkctl.exec("systemctl restart containerd")
-
-        vm_install_kube_location = "/usr/local/bin/install-kube.sh"
-        with open(cfg.install_kube_filepath, "r") as f:
-            wkctl.write_file(vm_install_kube_location, f.read())
-        wkctl.exec(f"chmod +x {vm_install_kube_location}")
-        wkctl.exec(vm_install_kube_location)
+            wkctl.restart_containerd()
+            wkctl.restart_kubelet()
 
         existed_control_plane_vm_id = None
         ctlpl_vm_list: List[VmResponse] = nodectl.detect_control_planes()

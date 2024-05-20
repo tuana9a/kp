@@ -36,8 +36,6 @@ wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.i
 cp $base_img_file $img_file
 
 virt-customize -a $img_file --install qemu-guest-agent
-virt-customize -a $img_file --install nfs-common # https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner
-virt-customize -a $img_file --timezone Asia/Ho_Chi_Minh
 
 img_file=jammy.img
 storage=

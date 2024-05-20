@@ -78,21 +78,16 @@ class ControlPlaneService:
         ctlplvmctl.wait_for_guest_agent()
         ctlplvmctl.wait_for_cloud_init()
 
-        vm_install_containerd_location = "/usr/local/bin/install-containerd.sh"
-        with open(cfg.install_containerd_filepath, "r") as f:
-            ctlplvmctl.write_file(vm_install_containerd_location, f.read())
-            ctlplvmctl.exec(f"chmod +x {vm_install_containerd_location}")
-            ctlplvmctl.exec(vm_install_containerd_location)
+        userdata_location = "/usr/local/bin/userdata.sh"
+        with open(cfg.userdata_control_plane_filepath, "r") as f:
+            ctlplvmctl.write_file(userdata_location, f.read())
+        ctlplvmctl.exec(f"chmod +x {userdata_location}")
+        ctlplvmctl.exec(userdata_location)
 
         with open(cfg.containerd_config_filepath) as f:
             ctlplvmctl.write_file("/etc/containerd/config.toml", f.read())
-            ctlplvmctl.exec("systemctl restart containerd")
-
-        vm_install_kube_location = "/usr/local/bin/install-kube.sh"
-        with open(cfg.install_kube_filepath, "r") as f:
-            ctlplvmctl.write_file(vm_install_kube_location, f.read())
-            ctlplvmctl.exec(f"chmod +x {vm_install_kube_location}")
-            ctlplvmctl.exec(vm_install_kube_location)
+            ctlplvmctl.restart_containerd()
+            ctlplvmctl.restart_kubelet()
 
         existed_lb_vm_id = None
         lb_vm_list: List[VmResponse] = nodectl.detect_load_balancers()
