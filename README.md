@@ -80,35 +80,17 @@ graph TD;
   error;
 ```
 
-# How to use
+# [WIP] How to use
 
-TODO
 ```bash
 python3 -m venv .venv
-```
-
-```bash
 source .venv/bin/activate
-```
-
-```bash
-pip install -e .
-```
-
-```bash
-sudo ln -sf $(which kp) /usr/local/bin/kp
+pip install -r requirements.txt
 ```
 
 # Decision / Choise / Explain
 
-immutable infrastructure
+## Immutable infrastructure
 
-converting worker to control plane or in reverse is not straight forward, as `kubeadm reset` leave cni (network), iptables behind so instead of modifing the node just remove it and create a new one.
-
-# Other
-
-format code
-
-```bash
-find -type f -name '*.py' ! -path 'app/*' -path 'cli/*' -path 'tests/*' -exec autopep8 --in-place --aggressive --aggressive '{}' \;
-```
+- converting worker to control plane or in reverse is not straight forward, as `kubeadm reset` leave cni (network), iptables behind so instead of modifing the node just remove it and create a new one.
+- when upgrading the k8s, upgrade in-place for worker node is not a must, we can just drain it, remove it, destroy it then create a new one with installed newer k8s verion.

@@ -46,6 +46,7 @@ class KubeVm(Vm):
         if is_control_plane:
             join_cmd.append("--control-plane")
         return join_cmd
+
     def restart_containerd(self):
         return self.exec("systemctl restart containerd")
 
