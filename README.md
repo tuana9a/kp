@@ -88,6 +88,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+build it
+
+```bash
+pyinstaller --name kp --onefile --hidden-import proxmoxer.backends --hidden-import proxmoxer.backends.https main.py
+```
+
+```bash
+sudo ln -sf $PWD/dist/kp /usr/local/bin/kp
+```
+
+```bash
+sudo chmod +x /usr/local/bin/kp
+```
+
 # Decision / Choise / Explain
 
 ## Immutable infrastructure
