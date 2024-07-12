@@ -1,10 +1,9 @@
 import os
 import urllib3
 
-from app import util
-from cli.core import Cmd
-from app.model.pve import PveNode
-from app.model.vm import Vm
+from kp import util
+from kp.util import Cmd
+from kp.service.vm import VmService
 
 
 class VmCmd(Cmd):
@@ -23,22 +22,20 @@ class RebootVmCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("reboot")
 
-    def _setup(self):
+    def setup(self):
         self.parser.add_argument("ids", nargs="+")
 
-    def _run(self):
+    def run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
 
         ids = args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
-        proxmox_node = cfg.proxmox_node
-        proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
-        for id in ids:
-            vmctl = Vm(nodectl.api, nodectl.node, id)
-            vmctl.reboot()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        for vmid in ids:
+            VmService.reboot(api, node, vmid)
 
 
 class RemoveVmCmd(Cmd):
@@ -46,23 +43,21 @@ class RemoveVmCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("remove", aliases=["rm"])
 
-    def _setup(self):
+    def setup(self):
         self.parser.add_argument("ids", nargs="+")
 
-    def _run(self):
+    def run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
         ids = args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
-        proxmox_node = cfg.proxmox_node
-        proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
-        for id in ids:
-            vmctl = Vm(nodectl.api, nodectl.node, id)
-            vmctl.shutdown()
-            vmctl.wait_for_shutdown()
-            vmctl.delete()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        for vmid in ids:
+            VmService.shutdown(api, node, vmid)
+            VmService.wait_for_shutdown(api, node, vmid)
+            VmService.delete(api, node, vmid)
 
 
 class StartVmCmd(Cmd):
@@ -70,23 +65,21 @@ class StartVmCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("start", aliases=["run", "up"])
 
-    def _setup(self):
+    def setup(self):
         self.parser.add_argument("ids", nargs="+")
 
-    def _run(self):
+    def run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
 
         ids = args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
-        proxmox_node = cfg.proxmox_node
-        proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
-        for id in ids:
-            vmctl = Vm(nodectl.api, nodectl.node, id)
-            vmctl.startup()
-            vmctl.wait_for_guest_agent()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        for vmid in ids:
+            VmService.startup(api, node, vmid)
+            VmService.wait_for_guest_agent(api, node, vmid)
 
 
 class CopyFileCmd(Cmd):
@@ -94,12 +87,12 @@ class CopyFileCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("copy-file", aliases=["cp"])
 
-    def _setup(self):
+    def setup(self):
         self.parser.add_argument("vmid", type=int)
         self.parser.add_argument("localpath", type=str)
         self.parser.add_argument("path", type=str)
 
-    def _run(self):
+    def run(self):
         args = self.parsed_args
         localpath = args.localpath
         path = args.path
@@ -107,10 +100,8 @@ class CopyFileCmd(Cmd):
         urllib3.disable_warnings()
         util.log.info("vm_id", vm_id)
         cfg = util.load_config()
-        proxmox_node = cfg.proxmox_node
-        proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
-        vmctl = Vm(nodectl.api, nodectl.node, vm_id)
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
         util.log.info(localpath, "->", path)
         with open(localpath, "r", encoding="utf-8") as f:
-            vmctl.write_file(path, f.read())
+            VmService.write_file(api, node, vm_id, path, f.read())

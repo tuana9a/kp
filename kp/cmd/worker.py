@@ -1,13 +1,14 @@
 import os
 import urllib3
 
-from app import util
-from cli.core import Cmd
-from app.service.worker import WorkerService
-from app import config
-from app.model.pve import PveNode
-from app.model.worker import WorkerVm
-from app.model.plane import ControlPlaneVm
+from kp import util
+from kp.util import Cmd
+from kp.service.worker import WorkerService
+from kp import config
+from kp.service.pve import PveService
+from kp.service.plane import ControlPlaneService
+from kp.service.kube import KubeadmService
+from kp.service.vm import VmService
 
 
 class WorkerCmd(Cmd):
@@ -27,14 +28,12 @@ class CreateWorkerCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("create", aliases=["add"])
 
-    def _run(self):
+    def run(self):
         urllib3.disable_warnings()
         cfg = util.load_config()
-        proxmox_node = cfg.proxmox_node
-        proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
-        service = WorkerService(nodectl)
-        service.create_worker(cfg)
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        WorkerService.create_worker(api, node, cfg)
 
 
 class DeleteWorkerCmd(Cmd):
@@ -42,20 +41,18 @@ class DeleteWorkerCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("delete", aliases=["remove", "rm"])
 
-    def _setup(self):
+    def setup(self):
         self.parser.add_argument("vmid", type=int)
 
-    def _run(self):
+    def run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
         vm_id = args.vmid or os.getenv("VMID")
         util.log.info("vm_id", vm_id)
         cfg = util.load_config()
-        proxmox_node = cfg.proxmox_node
-        proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
-        service = WorkerService(nodectl)
-        service.delete_worker(cfg, vm_id)
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        WorkerService.delete_worker(api, node, vm_id, cfg)
 
 
 class JoinWorkerCmd(Cmd):
@@ -63,26 +60,27 @@ class JoinWorkerCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("join")
 
-    def _setup(self):
+    def setup(self):
         self.parser.add_argument("workerids", nargs="+")
 
-    def _run(self):
+    def run(self):
         urllib3.disable_warnings()
         args = self.parsed_args
         worker_ids = args.workerids
         cfg = util.load_config()
-        proxmox_node = cfg.proxmox_node
-        proxmox_client = util.Proxmox.create_api_client(cfg)
-        nodectl = PveNode(proxmox_client, proxmox_node, cfg)
-        control_planes = nodectl.detect_control_planes()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        control_planes = PveService.detect_control_planes(
+            api, node, id_range=cfg.vm_id_range)
         if not len(control_planes):
             util.log.info("can't not find any control planes")
             return
         control_plane_id = control_planes[0].vmid
         util.log.info("ctlpl", control_plane_id, "workers", worker_ids)
-        ctlctl = ControlPlaneVm(nodectl.api, nodectl.node, control_plane_id)
-        join_cmd = ctlctl.create_join_command()
-        for id in worker_ids:
-            wkctl = WorkerVm(nodectl.api, nodectl.node, id)
-            wkctl.exec(join_cmd)
-            wkctl.update_config(tags=[config.Tag.wk, config.Tag.kp])
+        join_cmd = KubeadmService.create_join_command(
+            api, node, control_plane_id)
+        for vmid in worker_ids:
+            VmService.exec(api, node, vmid, join_cmd)
+            VmService.update_config(
+                api, node, vmid, tags=[
+                    config.Tag.wk, config.Tag.kp])

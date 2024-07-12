@@ -1,5 +1,5 @@
 from typing import List, Union
-from app import config
+from kp import config
 
 
 class Cfg:
