@@ -1,9 +1,12 @@
 import os
 import urllib3
+import ipaddress
 
 from kp import util
 from kp.util import Cmd
 from kp.service.vm import VmService
+from kp.service.pve import PveService
+from kp import config
 
 
 class VmCmd(Cmd):
@@ -11,10 +14,19 @@ class VmCmd(Cmd):
     def __init__(self) -> None:
         super().__init__(
             "vm",
-            childs=[RebootVmCmd(),
-                    RemoveVmCmd(),
-                    StartVmCmd(),
-                    CopyFileCmd()])
+            childs=[
+                RebootVmCmd(),
+                RemoveVmCmd(),
+                StartVmCmd(),
+                CopyFileCmd(),
+                CloneVmCmd(),
+                UpdateConfigCmd(),
+                WaitForGuestAgentCmd(),
+                WaitForCloudInitCmd(),
+                RunUserDataCmd(),
+                UpdateContainerdConfigCmd(),
+                RestartKubeletCmd(),
+            ])
 
 
 class RebootVmCmd(Cmd):
@@ -35,7 +47,7 @@ class RebootVmCmd(Cmd):
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         for vmid in ids:
-            VmService.reboot(api, node, vmid)
+            PveService.reboot(api, node, vmid)
 
 
 class RemoveVmCmd(Cmd):
@@ -55,9 +67,9 @@ class RemoveVmCmd(Cmd):
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         for vmid in ids:
-            VmService.shutdown(api, node, vmid)
-            VmService.wait_for_shutdown(api, node, vmid)
-            VmService.delete(api, node, vmid)
+            PveService.shutdown(api, node, vmid)
+            PveService.wait_for_shutdown(api, node, vmid)
+            PveService.delete_vm(api, node, vmid)
 
 
 class StartVmCmd(Cmd):
@@ -78,8 +90,39 @@ class StartVmCmd(Cmd):
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         for vmid in ids:
-            VmService.startup(api, node, vmid)
-            VmService.wait_for_guest_agent(api, node, vmid)
+            PveService.startup(api, node, vmid)
+
+
+class WaitForGuestAgentCmd(Cmd):
+    def __init__(self):
+        super().__init__("wait-guestagent")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+
+    def run(self):
+        vmid = self.parsed_args.vmid
+        util.log.info("vmid", vmid)
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        PveService.wait_for_guestagent(api, node, vmid)
+
+
+class WaitForCloudInitCmd(Cmd):
+    def __init__(self):
+        super().__init__("wait-cloudinit")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+
+    def run(self):
+        vmid = self.parsed_args.vmid
+        util.log.info("vmid", vmid)
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        PveService.wait_for_cloudinit(api, node, vmid)
 
 
 class CopyFileCmd(Cmd):
@@ -104,4 +147,127 @@ class CopyFileCmd(Cmd):
         api = util.Proxmox.create_api_client(cfg)
         util.log.info(localpath, "->", path)
         with open(localpath, "r", encoding="utf-8") as f:
-            VmService.write_file(api, node, vm_id, path, f.read())
+            PveService.write_file(api, node, vm_id, path, f.read())
+
+
+class CloneVmCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("clone", aliases=["cl"])
+
+    def setup(self):
+        self.parser.add_argument("srcid", type=int)
+        self.parser.add_argument("destid", type=int)
+
+    def run(self):
+        src_id = self.parsed_args.srcid
+        dest_id = self.parsed_args.destid
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        PveService.clone(api, node, src_id, dest_id)
+
+
+class UpdateConfigCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("update-config")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+        self.parser.add_argument("--vm-net", type=str, required=True)
+        self.parser.add_argument("--vm-ip", type=str, required=True)
+        self.parser.add_argument("--vm-cores", type=int, default=2)
+        self.parser.add_argument("--vm-mem", type=int, default=2048)
+        self.parser.add_argument("--vm-disk", type=str, default="20G")
+        self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
+        self.parser.add_argument("--vm-username", type=str, default="u")
+        self.parser.add_argument("--vm-password", type=str, default="1")
+        self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        vm_name_prefix = self.parsed_args.vm_name_prefix
+        new_vm_name = vm_name_prefix + str(vmid)
+        vm_cores = self.parsed_args.vm_cores
+        vm_mem = self.parsed_args.vm_mem
+        vm_disk_size = self.parsed_args.vm_disk
+        vm_username = self.parsed_args.vm_username
+        vm_password = self.parsed_args.vm_password
+        vm_network = self.parsed_args.vm_net
+        vm_ip = self.parsed_args.vm_ip
+        vm_start_on_boot = self.parsed_args.vm_start_on_boot
+        r = PveService.describe_network(api, node, vm_network)
+        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
+            or r["address"]
+
+        PveService.update_config(api, node, vmid,
+                                 name=new_vm_name,
+                                 cpu="cputype=host",
+                                 cores=vm_cores,
+                                 memory=vm_mem,
+                                 agent="enabled=1,fstrim_cloned_disks=1",
+                                 ciuser=vm_username,
+                                 cipassword=vm_password,
+                                 net0=f"virtio,bridge={vm_network}",
+                                 ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
+                                 sshkeys=util.Proxmox.encode_sshkeys(cfg.vm_ssh_keys),
+                                 onboot=vm_start_on_boot,
+                                 tags=";".join([config.Tag.kp]))
+
+        PveService.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
+
+
+class RunUserDataCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("run-userdata")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+        self.parser.add_argument("userdata", type=str)
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        userdata = self.parsed_args.userdata
+        vm_userdata = "/usr/local/bin/userdata.sh"
+        with open(userdata, "r") as f:
+            PveService.write_file(api, node, vmid, vm_userdata, f.read())
+        PveService.exec(api, node, vmid, f"chmod +x {vm_userdata}")
+        PveService.exec(api, node, vmid, vm_userdata)
+
+
+class UpdateContainerdConfigCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("update-containerd-config")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+        self.parser.add_argument("filepath", type=str)
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        filepath = self.parsed_args.filepath
+        VmService.update_containerd_config(api, node, vmid, filepath)
+        VmService.restart_containerd(api, node, vmid)
+
+
+class RestartKubeletCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("restart-kubelet")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        VmService.restart_kubelet(api, node, vmid)

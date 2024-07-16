@@ -7,7 +7,6 @@ from kp.util import Cmd
 from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
 from kp.service.pve import PveService
-from kp.service.kube import KubeadmService
 
 
 class ControlPlaneCmd(Cmd):
@@ -17,9 +16,13 @@ class ControlPlaneCmd(Cmd):
                          childs=[
                              CreateControlPlaneCmd(),
                              DeleteControlPlaneCmd(),
-                             KubeConfigCmd(),
+                             ViewKubeConfigCmd(),
+                             SaveKubeConfigCmd(),
                              CopyKubeCertsCmd(),
                              JoinControlPlaneCmd(),
+                             EtcdMemberListCmd(),
+                             EtcdEndpointStatusClusterCmd(),
+                             EtcdMemberRemoveCmd(),
                          ],
                          aliases=["ctlpl", "plane"])
 
@@ -29,12 +32,90 @@ class CreateControlPlaneCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("create", aliases=["add"])
 
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+
+        self.parser.add_argument("--template-id", type=int, required=True)
+        self.parser.add_argument("--vm-net", type=str, required=True)
+        self.parser.add_argument("--vm-ip", type=str, required=True)
+        self.parser.add_argument("--vm-cores", type=int, default=4)
+        self.parser.add_argument("--vm-mem", type=int, default=8192)
+        self.parser.add_argument("--vm-disk", type=str, default="20G")
+        self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
+        self.parser.add_argument("--vm-username", type=str, default="u")
+        self.parser.add_argument("--vm-password", type=str, default="1")
+        self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
+
+        self.parser.add_argument("--vm-userdata", type=str, required=True)
+        self.parser.add_argument("--vm-containerd-config", type=str, required=True)
+
+        self.parser.add_argument("--pod-cidr", type=str, required=True)
+        self.parser.add_argument("--svc-cidr", type=str, required=True)
+
     def run(self):
         urllib3.disable_warnings()
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
-        ControlPlaneService.create_control_plane(api, node, cfg)
+
+        vmid = self.parsed_args.vmid
+        template_id = self.parsed_args.template_id
+        vm_name_prefix = self.parsed_args.vm_name_prefix
+        new_vm_name = vm_name_prefix + str(vmid)
+        vm_cores = self.parsed_args.vm_cores
+        vm_mem = self.parsed_args.vm_mem
+        vm_disk_size = self.parsed_args.vm_disk
+        vm_username = self.parsed_args.vm_username
+        vm_password = self.parsed_args.vm_password
+        vm_network = self.parsed_args.vm_net
+        vm_ip = self.parsed_args.vm_ip
+        vm_start_on_boot = self.parsed_args.vm_start_on_boot
+        r = PveService.describe_network(api, node, vm_network)
+        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
+            or r["address"]
+
+        vm_userdata = self.parsed_args.vm_userdata
+        vm_containerd_config = self.parsed_args.vm_containerd_config
+
+        pod_cidr = self.parsed_args.pod_cidr
+        svc_cidr = self.parsed_args.svc_cidr
+
+        PveService.update_config(api, node, vmid,
+                                 name=new_vm_name,
+                                 cpu="cputype=host",
+                                 cores=vm_cores,
+                                 memory=vm_mem,
+                                 agent="enabled=1,fstrim_cloned_disks=1",
+                                 ciuser=vm_username,
+                                 cipassword=vm_password,
+                                 net0=f"virtio,bridge={vm_network}",
+                                 ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
+                                 sshkeys=util.Proxmox.encode_sshkeys(cfg.vm_ssh_keys),
+                                 onboot=vm_start_on_boot,
+                                 tags=";".join([config.Tag.kp]),
+                                 )
+        PveService.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
+
+        PveService.startup(api, node, vmid)
+        PveService.wait_for_guestagent(api, node, vmid)
+        PveService.wait_for_cloudinit(api, node, vmid)
+
+        userdata_location = "/usr/local/bin/userdata.sh"
+        with open(vm_userdata, "r") as f:
+            PveService.write_file(api, node, vmid, userdata_location, f.read())
+        PveService.exec(api, node, vmid, f"chmod +x {userdata_location}")
+        PveService.exec(api, node, vmid, userdata_location)
+
+        VmService.update_containerd_config(api, node, vmid, vm_containerd_config)
+        VmService.restart_containerd(api, node, vmid)
+
+        ControlPlaneService.init(api,
+                                 node,
+                                 vmid,
+                                 control_plane_endpoint=vm_ip,
+                                 pod_cidr=pod_cidr,
+                                 svc_cidr=svc_cidr)
+        return vmid
 
 
 class DeleteControlPlaneCmd(Cmd):
@@ -48,26 +129,20 @@ class DeleteControlPlaneCmd(Cmd):
     def run(self):
         urllib3.disable_warnings()
         cfg = util.load_config()
-        args = self.parsed_args
-        vm_id = args.vmid or os.getenv("VMID")
+        vm_id = self.parsed_args.vmid
         util.log.info("vm_id", vm_id)
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
-        ControlPlaneService.delete_control_plane(api, node, vm_id, cfg)
-
-
-class KubeConfigCmd(Cmd):
-    def __init__(self) -> None:
-        super().__init__("kubeconfig", childs=[
-            ViewKubeConfigCmd(),
-            SaveKubeConfigCmd(),
-        ])
+        VmService.kubeadm_reset(api, node, vm_id)
+        PveService.shutdown(api, node, vm_id)
+        PveService.wait_for_shutdown(api, node, vm_id)
+        PveService.delete_vm(api, node, vm_id)
 
 
 class ViewKubeConfigCmd(Cmd):
 
     def __init__(self) -> None:
-        super().__init__("view", aliases=["cat"])
+        super().__init__("view-kubeconfig", aliases=["cat-kubeconfig"])
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
@@ -92,7 +167,7 @@ class ViewKubeConfigCmd(Cmd):
 class SaveKubeConfigCmd(Cmd):
 
     def __init__(self) -> None:
-        super().__init__("save")
+        super().__init__("save-kubeconfig")
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
@@ -125,20 +200,20 @@ class CopyKubeCertsCmd(Cmd):
         super().__init__("copy-certs")
 
     def setup(self):
-        self.parser.add_argument("source", type=int)
-        self.parser.add_argument("dest", type=int)
+        self.parser.add_argument("src_id", type=int)
+        self.parser.add_argument("dest_id", type=int)
 
     def run(self):
         args = self.parsed_args
-        source_id = args.source
-        dest_id = args.dest
+        src_id = args.src_id
+        dest_id = args.dest_id
         urllib3.disable_warnings()
-        util.log.info("src", source_id, "dest", dest_id)
+        util.log.info("src", src_id, "dest", dest_id)
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         ControlPlaneService.ensure_cert_dirs(api, node, dest_id)
-        ControlPlaneService.copy_kube_certs(api, node, source_id, dest_id)
+        ControlPlaneService.copy_kube_certs(api, node, src_id, dest_id)
 
 
 class JoinControlPlaneCmd(Cmd):
@@ -147,45 +222,96 @@ class JoinControlPlaneCmd(Cmd):
         super().__init__("join")
 
     def setup(self):
-        self.parser.add_argument("ctlplids", nargs="+", type=int)
+        self.parser.add_argument("--dad-id", type=int, required=True)
+        self.parser.add_argument("--child-id", type=int, required=True)
 
     def run(self):
         urllib3.disable_warnings()
-        args = self.parsed_args
-        control_plane_ids = args.ctlplids
-        child_ids_set = set(control_plane_ids)
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
-        ctlpl_list = PveService.detect_control_planes(
-            api, node, id_range=cfg.vm_id_range)
+        dad_id = self.parsed_args.dad_id
+        child_id = self.parsed_args.child_id
+        util.log.info("dad", dad_id, "child", child_id)
 
-        if not len(ctlpl_list):
-            util.log.info("can't find any control planes")
-            return
+        ControlPlaneService.ensure_cert_dirs(api, node, child_id)
+        ControlPlaneService.copy_kube_certs(api, node, dad_id, child_id)
+        join_cmd = ControlPlaneService.create_join_command(api,
+                                                           node,
+                                                           dad_id,
+                                                           is_control_plane=True)
+        PveService.exec(api, node, child_id, join_cmd)
 
-        for x in ctlpl_list:
-            vm_id = x.vmid
-            if vm_id not in child_ids_set:
-                control_plane_id = vm_id
-                break
 
-        if not control_plane_id:
-            util.log.info("can't find dad control plane")
-            return
+class EtcdMemberListCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("etcd-member-list")
 
-        util.log.info("dad", control_plane_id, "childs", control_plane_ids)
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
 
-        join_cmd = KubeadmService.create_join_command(
-            api, node, control_plane_id, is_control_plane=True)
+    def run(self):
+        urllib3.disable_warnings()
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        util.log.info("vmid", vmid)
+        opts = [
+            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
+            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
+            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
+        ]
+        cmd = "/usr/local/bin/etcdctl member list -w table".split()
+        cmd.extend(opts)
+        PveService.exec(api, node, vmid, cmd, interval_check=3)
 
-        # EXPLAIN: need to join and update the tags before detect control plane
-        # by tag
-        for vmid in control_plane_ids:
-            ControlPlaneService.ensure_cert_dirs(api, node, vm_id)
-            ControlPlaneService.copy_kube_certs(
-                api, node, control_plane_id, vmid)
-            VmService.exec(api, node, vmid, join_cmd)
-            VmService.update_config(
-                api, node, vmid, tags=[
-                    config.Tag.ctlpl, config.Tag.kp])
+
+class EtcdEndpointStatusClusterCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("etcd-endpoint-status-cluster")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+
+    def run(self):
+        urllib3.disable_warnings()
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        util.log.info("vmid", vmid)
+        opts = [
+            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
+            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
+            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
+        ]
+        cmd = "/usr/local/bin/etcdctl endpoint status --cluster -w table".split()
+        cmd.extend(opts)
+        PveService.exec(api, node, vmid, cmd, interval_check=3)
+
+
+class EtcdMemberRemoveCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("etcd-member-remove", aliases=["etcd-member-rm"])
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+        self.parser.add_argument("member_id", type=str)
+
+    def run(self):
+        urllib3.disable_warnings()
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        member_id = self.parsed_args.member_id
+        util.log.info("vmid", vmid, "member_id", member_id)
+        opts = [
+            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
+            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
+            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
+        ]
+        cmd = f"/usr/local/bin/etcdctl member remove {member_id}".split()
+        cmd.extend(opts)
+        PveService.exec(api, node, vmid, cmd, interval_check=3)

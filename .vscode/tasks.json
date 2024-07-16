@@ -6,7 +6,7 @@
         {
             "label": "autopep8",
             "type": "shell",
-            "command": "cd ${workspaceFolder} && source .venv/bin/activate && find ./kp ./main.py -name '*.py' -exec autopep8 -v --in-place --aggressive --aggressive '{}' \\;",
+            "command": "cd ${workspaceFolder} && source .venv/bin/activate && find ./kp ./main.py -name '*.py' -exec autopep8 -v --in-place --ignore=E501 --aggressive --aggressive '{}' \\;",
             "problemMatcher": [],
         },
         {

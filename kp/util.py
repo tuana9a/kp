@@ -78,7 +78,7 @@ class Proxmox:
 
     @staticmethod
     def create_api_client(cfg: Cfg):
-        # TODO: verify later with ca cert
+        # TODO: verify with ca cert
         if cfg.proxmox_token_name:
             log.info("using proxmox_token")
             return ProxmoxAPI(cfg.proxmox_host,
@@ -94,7 +94,7 @@ class Proxmox:
             verify_ssl=False,
         )
 
-    def filter_vm_id(vm_list: List[VmResponse], vm_id: int):
+    def filter_vm_by_id(vm_list: List[VmResponse], vm_id: int):
         for x in vm_list:
             if str(x.vmid) == str(vm_id):
                 log.debug("util.filter_id", x.vmid)
@@ -115,19 +115,6 @@ class Proxmox:
         log.debug("util.filter_tag", tag,
                   list(map(lambda x: x.vmid, result)))
         return result
-
-
-class Haproxy:
-
-    @staticmethod
-    def render_backends_config(backends: list):
-        content = ""
-        for backend in backends:
-            vm_id = backend[0]
-            vm_ip = backend[1]
-            # TODO: indent is configurable
-            content += 4 * " " + f"server {vm_id} {vm_ip}:6443 check\n"
-        return content
 
 
 class Cmd:
