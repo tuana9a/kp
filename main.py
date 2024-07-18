@@ -1,11 +1,11 @@
 import sys
 
-from cli.core import Cmd
-from cli.plane import ControlPlaneCmd
-from cli.lb import LbCmd
-from cli.help import TreeCmd
-from cli.worker import WorkerCmd
-from cli.vm import VmCmd
+from kp.util import Cmd
+from kp.cmd.plane import ControlPlaneCmd
+from kp.cmd.lb import LbCmd
+from kp.cmd.help import TreeCmd
+from kp.cmd.worker import WorkerCmd
+from kp.cmd.vm import VmCmd
 
 
 class MainCmd(Cmd):
@@ -22,7 +22,7 @@ class MainCmd(Cmd):
 
 
 def main():
-    MainCmd().run(sys.argv[1:])
+    MainCmd().call(sys.argv[1:])
 
 
 if __name__ == "__main__":
