@@ -80,13 +80,13 @@ class Proxmox:
     def create_api_client(cfg: Cfg):
         # TODO: verify with ca cert
         if cfg.proxmox_token_name:
-            log.info("using proxmox_token")
+            log.info("auth using proxmox_token")
             return ProxmoxAPI(cfg.proxmox_host,
                               user=cfg.proxmox_user,
                               token_name=cfg.proxmox_token_name,
                               token_value=cfg.proxmox_token_value,
                               verify_ssl=cfg.proxmox_verify_ssl)
-        log.info("using proxmox_password")
+        log.info("auth using proxmox_password")
         return ProxmoxAPI(
             cfg.proxmox_host,
             user=cfg.proxmox_user,

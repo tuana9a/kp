@@ -36,14 +36,14 @@ EOF
 sysctl --system
 
 # Add the repository for K8S
-kubernetes_version="1.29"
+kubernetes_version="1.30"
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/Release.key | gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
 
 # Install kubernetes dependencies
 apt-get update
-apt install -y kubelet='1.29.6-*' kubeadm='1.29.6-*' kubectl='1.29.6-*'
+apt install -y kubelet='1.30.2-*' kubeadm='1.30.2-*' kubectl='1.30.2-*'
 
 # Install etcdctl https://github.com/etcd-io/etcd/releases/
 ETCD_VER=v3.5.12
