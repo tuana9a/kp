@@ -2,7 +2,6 @@ import time
 import ipaddress
 
 from proxmoxer import ProxmoxAPI
-from kp.service.vm import VmService
 from kp.error import *
 from kp import util
 from kp import config
@@ -10,7 +9,7 @@ from kp.payload import *
 from typing import List
 
 
-class PveService:
+class PveApi:
     @staticmethod
     def clone(api: ProxmoxAPI, node: str, old_id, new_id):
         r = api.nodes(node).qemu(old_id).clone.post(newid=new_id)
@@ -56,7 +55,7 @@ class PveService:
             node: str,
             id_range=config.PROXMOX_VM_ID_RANGE,
             preserved_ids=[]):
-        vm_list = PveService.list_vm(api, node, id_range=id_range)
+        vm_list = PveApi.list_vm(api, node, id_range=id_range)
         exist_ids = set()
         exist_ids.update(preserved_ids)
         for vm in vm_list:
@@ -76,7 +75,7 @@ class PveService:
             network_name: str,
             id_range=config.PROXMOX_VM_ID_RANGE,
             preserved_ips=[]):
-        r = PveService.describe_network(api, node, network_name)
+        r = PveApi.describe_network(api, node, network_name)
         network_interface = ipaddress.IPv4Interface(r["cidr"])
         network_gw_ip = str(network_interface.ip) or r["address"]
         vm_network = network_interface.network
@@ -85,13 +84,13 @@ class PveService:
             ip_pool.append(str(vmip))
         preserved_ips.append(network_gw_ip)
         util.log.debug(node, network_name, "preserved_ips", preserved_ips)
-        vm_list = PveService.list_vm(api, node, id_range=id_range)
+        vm_list = PveApi.list_vm(api, node, id_range=id_range)
         exist_ips = set()
         exist_ips.update(preserved_ips)
         for vm in vm_list:
             vmid = vm.vmid
-            ifconfig0 = PveService.current_config(api, node,
-                                                  vmid).ifconfig(0)
+            ifconfig0 = PveApi.current_config(api, node,
+                                              vmid).ifconfig(0)
             if not ifconfig0:
                 continue
             ip = util.Proxmox.extract_ip(ifconfig0)
@@ -115,7 +114,7 @@ class PveService:
         automatically scan the control planes by tag
         """
         ctlpl_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            PveService.list_vm(api, node, id_range=id_range),
+            PveApi.list_vm(api, node, id_range=id_range),
             config.Tag.ctlpl)
         util.log.info("detect_control_planes", len(ctlpl_list))
         return ctlpl_list
@@ -131,7 +130,7 @@ class PveService:
         automatically scan the control planes by tag
         """
         lb_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            PveService.list_vm(api, node, id_range=id_range),
+            PveApi.list_vm(api, node, id_range=id_range),
             config.Tag.lb)
         util.log.info("detect_load_balancers", len(lb_list))
         return lb_list
@@ -148,7 +147,7 @@ class PveService:
         count = 0
         while count < max_count:
             try:
-                vm = PveService.find_vm_by_id(api, node, vm_id)
+                vm = PveApi.find_vm_by_id(api, node, vm_id)
             except VmNotFoundException as err:
                 return r
             count = count + 1
@@ -189,12 +188,12 @@ class PveService:
             except Exception as err:
                 util.log.info(f"ERROR {err}")
         util.log.info(node, vm_id, "exec", pid, "duration", duration, "exitcode", exitcode)
+        out = ""
         if stdout:
-            util.log.debug(node, vm_id, "exec", pid, "stdout\n" + str(stdout))
+            out += "=== stdout ===\n" + str(stdout)
         if stderr:
-            util.log.debug(node, vm_id, "exec", pid, "stderr\n" + str(stderr))
-        if exitcode:
-            util.log.error(node, vm_id, "exec", pid, "stderr\n" + str(stderr))
+            out += "=== stderr ===\n" + str(stderr)
+        util.log.debug(node, vm_id, "exec", pid, "out\n" + str(out))
         return exitcode, stdout, stderr
 
     @staticmethod
@@ -209,14 +208,14 @@ class PveService:
             time.sleep(interval_check)
             duration += interval_check
             if duration > timeout:
-                util.log.error(node, vm_id, PveService.wait_for_guestagent.__name__, "TIMEOUT")
+                util.log.error(node, vm_id, PveApi.wait_for_guestagent.__name__, "TIMEOUT")
                 raise TimeoutError()
             try:
                 api.nodes(node).qemu(vm_id).agent.ping.post()
                 break
             except Exception as err:
-                util.log.info(node, vm_id, PveService.wait_for_guestagent.__name__, "WAIT", duration)
-        util.log.info(node, vm_id, PveService.wait_for_guestagent.__name__, "DONE")
+                util.log.info(node, vm_id, PveApi.wait_for_guestagent.__name__, "WAIT", duration)
+        util.log.info(node, vm_id, PveApi.wait_for_guestagent.__name__, "DONE")
 
     @staticmethod
     def wait_for_cloudinit(api: ProxmoxAPI,
@@ -224,9 +223,9 @@ class PveService:
                            vm_id: str,
                            timeout=config.TIMEOUT_IN_SECONDS,
                            interval_check=15):
-        return PveService.exec(api, node, vm_id, "cloud-init status --wait",
-                               timeout=timeout,
-                               interval_check=interval_check)
+        return PveApi.exec(api, node, vm_id, "cloud-init status --wait",
+                           timeout=timeout,
+                           interval_check=interval_check)
 
     @staticmethod
     def wait_for_shutdown(api: ProxmoxAPI,
@@ -238,19 +237,16 @@ class PveService:
         status = None
         duration = 0
         while True:
-            util.log.info(node, vm_id, PveService.wait_for_shutdown.__name__, "WAIT", duration)
+            util.log.info(node, vm_id, PveApi.wait_for_shutdown.__name__, "WAIT", duration)
             time.sleep(interval_check)
             duration += interval_check
             if duration > timeout:
-                util.log.error(node, vm_id, PveService.wait_for_shutdown.__name__, "TIMEOUT")
+                util.log.error(node, vm_id, PveApi.wait_for_shutdown.__name__, "TIMEOUT")
                 raise TimeoutError()
-            try:
-                r = api.nodes(node).qemu(vm_id).status.current.get()
-                status = r["status"]
-                if status == "stopped":
-                    break
-            except Exception as err:
-                util.log.error("shutdown", err)
+            r = api.nodes(node).qemu(vm_id).status.current.get()
+            status = r["status"]
+            if status == "stopped":
+                break
 
     @staticmethod
     def update_config(api: ProxmoxAPI,

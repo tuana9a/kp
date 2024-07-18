@@ -6,7 +6,7 @@ from kp import config
 from kp.util import Cmd
 from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
-from kp.service.pve import PveService
+from kp.client.pve import PveApi
 
 
 class ControlPlaneCmd(Cmd):
@@ -20,9 +20,11 @@ class ControlPlaneCmd(Cmd):
                              SaveKubeConfigCmd(),
                              CopyKubeCertsCmd(),
                              JoinControlPlaneCmd(),
-                             EtcdMemberListCmd(),
-                             EtcdEndpointStatusClusterCmd(),
-                             EtcdMemberRemoveCmd(),
+                             EtcdctlMemberListCmd(),
+                             EtcdctlEndpointStatusClusterCmd(),
+                             EtcdctlMemberRemoveCmd(),
+                             EtcdctlSnapshotSaveCmd(),
+                             BackupCmd(),
                          ],
                          aliases=["ctlpl", "plane"])
 
@@ -70,7 +72,7 @@ class CreateControlPlaneCmd(Cmd):
         vm_network = self.parsed_args.vm_net
         vm_ip = self.parsed_args.vm_ip
         vm_start_on_boot = self.parsed_args.vm_start_on_boot
-        r = PveService.describe_network(api, node, vm_network)
+        r = PveApi.describe_network(api, node, vm_network)
         network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
             or r["address"]
 
@@ -80,31 +82,31 @@ class CreateControlPlaneCmd(Cmd):
         pod_cidr = self.parsed_args.pod_cidr
         svc_cidr = self.parsed_args.svc_cidr
 
-        PveService.update_config(api, node, vmid,
-                                 name=new_vm_name,
-                                 cpu="cputype=host",
-                                 cores=vm_cores,
-                                 memory=vm_mem,
-                                 agent="enabled=1,fstrim_cloned_disks=1",
-                                 ciuser=vm_username,
-                                 cipassword=vm_password,
-                                 net0=f"virtio,bridge={vm_network}",
-                                 ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
-                                 sshkeys=util.Proxmox.encode_sshkeys(cfg.vm_ssh_keys),
-                                 onboot=vm_start_on_boot,
-                                 tags=";".join([config.Tag.kp]),
-                                 )
-        PveService.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
+        PveApi.update_config(api, node, vmid,
+                             name=new_vm_name,
+                             cpu="cputype=host",
+                             cores=vm_cores,
+                             memory=vm_mem,
+                             agent="enabled=1,fstrim_cloned_disks=1",
+                             ciuser=vm_username,
+                             cipassword=vm_password,
+                             net0=f"virtio,bridge={vm_network}",
+                             ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
+                             sshkeys=util.Proxmox.encode_sshkeys(cfg.vm_ssh_keys),
+                             onboot=vm_start_on_boot,
+                             tags=";".join([config.Tag.kp]),
+                             )
+        PveApi.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
 
-        PveService.startup(api, node, vmid)
-        PveService.wait_for_guestagent(api, node, vmid)
-        PveService.wait_for_cloudinit(api, node, vmid)
+        PveApi.startup(api, node, vmid)
+        PveApi.wait_for_guestagent(api, node, vmid)
+        PveApi.wait_for_cloudinit(api, node, vmid)
 
         userdata_location = "/usr/local/bin/userdata.sh"
         with open(vm_userdata, "r") as f:
-            PveService.write_file(api, node, vmid, userdata_location, f.read())
-        PveService.exec(api, node, vmid, f"chmod +x {userdata_location}")
-        PveService.exec(api, node, vmid, userdata_location)
+            PveApi.write_file(api, node, vmid, userdata_location, f.read())
+        PveApi.exec(api, node, vmid, f"chmod +x {userdata_location}")
+        PveApi.exec(api, node, vmid, userdata_location)
 
         VmService.update_containerd_config(api, node, vmid, vm_containerd_config)
         VmService.restart_containerd(api, node, vmid)
@@ -134,9 +136,9 @@ class DeleteControlPlaneCmd(Cmd):
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         VmService.kubeadm_reset(api, node, vm_id)
-        PveService.shutdown(api, node, vm_id)
-        PveService.wait_for_shutdown(api, node, vm_id)
-        PveService.delete_vm(api, node, vm_id)
+        PveApi.shutdown(api, node, vm_id)
+        PveApi.wait_for_shutdown(api, node, vm_id)
+        PveApi.delete_vm(api, node, vm_id)
 
 
 class ViewKubeConfigCmd(Cmd):
@@ -240,12 +242,12 @@ class JoinControlPlaneCmd(Cmd):
                                                            node,
                                                            dad_id,
                                                            is_control_plane=True)
-        PveService.exec(api, node, child_id, join_cmd)
+        PveApi.exec(api, node, child_id, join_cmd)
 
 
-class EtcdMemberListCmd(Cmd):
+class EtcdctlMemberListCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("etcd-member-list")
+        super().__init__("etcdctl-member-list")
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
@@ -264,12 +266,12 @@ class EtcdMemberListCmd(Cmd):
         ]
         cmd = "/usr/local/bin/etcdctl member list -w table".split()
         cmd.extend(opts)
-        PveService.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
 
 
-class EtcdEndpointStatusClusterCmd(Cmd):
+class EtcdctlEndpointStatusClusterCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("etcd-endpoint-status-cluster")
+        super().__init__("etcdctl-endpoint-status-cluster")
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
@@ -288,12 +290,12 @@ class EtcdEndpointStatusClusterCmd(Cmd):
         ]
         cmd = "/usr/local/bin/etcdctl endpoint status --cluster -w table".split()
         cmd.extend(opts)
-        PveService.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
 
 
-class EtcdMemberRemoveCmd(Cmd):
+class EtcdctlMemberRemoveCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("etcd-member-remove", aliases=["etcd-member-rm"])
+        super().__init__("etcdctl-member-remove", aliases=["etcdctl-member-rm"])
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
@@ -314,4 +316,55 @@ class EtcdMemberRemoveCmd(Cmd):
         ]
         cmd = f"/usr/local/bin/etcdctl member remove {member_id}".split()
         cmd.extend(opts)
-        PveService.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+
+
+class EtcdctlSnapshotSaveCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("etcdctl-snapshot-save")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+        self.parser.add_argument("--backup-dir", type=str, default="/root/backup")
+
+    def run(self):
+        urllib3.disable_warnings()
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        backup_dir = self.parsed_args.backup_dir
+        util.log.info("vmid", vmid, "backup_dir", backup_dir)
+        opts = [
+            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
+            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
+            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
+        ]
+        cmd = f"mkdir -p {backup_dir}".split()
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        cmd = f"/usr/local/bin/etcdctl snapshot save {backup_dir}/snapshot.db".split()
+        cmd.extend(opts)
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+
+
+class BackupCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("backup")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+        self.parser.add_argument("--backup-dir", type=str, default="/root/backup")
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        backup_dir = self.parsed_args.backup_dir
+        util.log.info("vmid", vmid, "backup_dir", backup_dir)
+        cmd = f"mkdir -p {backup_dir}".split()
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        cmd = f"cp -r /etc/kubernetes/pki {backup_dir}"
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        cmd = f"cp -r /var/lib/etcd/ {backup_dir}"
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)

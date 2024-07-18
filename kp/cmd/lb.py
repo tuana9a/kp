@@ -1,8 +1,9 @@
 import urllib3
+import ipaddress
 
 from kp.service.vm import VmService
 from kp.util import Cmd
-from kp.service.pve import PveService
+from kp.client.pve import PveApi
 from kp.service.lb import LbService
 from kp import util
 from kp import config
@@ -27,7 +28,7 @@ class CreateLbCmd(Cmd):
 
     def setup(self):
         self.parser.add_argument("lbid", type=int)
-        self.parser.add_argument("planeids", nargs="+")
+        self.parser.add_argument("--plane-ids", nargs="+")
 
         self.parser.add_argument("--template-id", type=int, required=True)
         self.parser.add_argument("--vm-net", type=str, required=True)
@@ -48,7 +49,8 @@ class CreateLbCmd(Cmd):
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         lb_id = self.parsed_args.lbid
-        plane_ids = self.parsed_args.planeids
+        plane_ids = self.parsed_args.plane_ids
+        util.log.info("lb_id", lb_id, "plane_ids", plane_ids)
 
         template_id = self.parsed_args.template_id
         vm_name_prefix = self.parsed_args.vm_name_prefix
@@ -61,44 +63,43 @@ class CreateLbCmd(Cmd):
         vm_network = self.parsed_args.vm_net
         vm_ip = self.parsed_args.vm_ip
         vm_start_on_boot = self.parsed_args.vm_start_on_boot
-        r = PveService.describe_network(api, node, vm_network)
+        r = PveApi.describe_network(api, node, vm_network)
         network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
             or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
-        vm_containerd_config = self.parsed_args.vm_containerd_config
 
-        PveService.clone(api, node, template_id, lb_id)
+        PveApi.clone(api, node, template_id, lb_id)
 
-        PveService.update_config(api, node, lb_id,
-                                 name=new_vm_name,
-                                 cpu="cputype=host",
-                                 cores=vm_cores,
-                                 memory=vm_mem,
-                                 agent="enabled=1,fstrim_cloned_disks=1",
-                                 ciuser=vm_username,
-                                 cipassword=vm_password,
-                                 net0=f"virtio,bridge={vm_network}",
-                                 ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
-                                 sshkeys=util.Proxmox.encode_sshkeys(cfg.vm_ssh_keys),
-                                 onboot=vm_start_on_boot,
-                                 tags=";".join([config.Tag.kp]))
+        PveApi.update_config(api, node, lb_id,
+                             name=new_vm_name,
+                             cpu="cputype=host",
+                             cores=vm_cores,
+                             memory=vm_mem,
+                             agent="enabled=1,fstrim_cloned_disks=1",
+                             ciuser=vm_username,
+                             cipassword=vm_password,
+                             net0=f"virtio,bridge={vm_network}",
+                             ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
+                             sshkeys=util.Proxmox.encode_sshkeys(cfg.vm_ssh_keys),
+                             onboot=vm_start_on_boot,
+                             tags=";".join([config.Tag.kp]))
 
-        PveService.resize_disk(api, node, lb_id, "scsi0", vm_disk_size)
+        PveApi.resize_disk(api, node, lb_id, "scsi0", vm_disk_size)
 
-        PveService.startup(api, node, lb_id)
-        PveService.guest_agent_wait(api, node, lb_id)
-        PveService.wait_for_cloudinit(api, node, lb_id)
+        PveApi.startup(api, node, lb_id)
+        PveApi.wait_for_guestagent(api, node, lb_id)
+        PveApi.wait_for_cloudinit(api, node, lb_id)
 
         userdata_location = "/usr/local/bin/userdata.sh"
         with open(vm_userdata, "r") as f:
-            PveService.write_file(api, node, lb_id, userdata_location, f.read())
-        PveService.exec(api, node, lb_id, f"chmod +x {userdata_location}")
-        PveService.exec(api, node, lb_id, userdata_location)
+            PveApi.write_file(api, node, lb_id, userdata_location, f.read())
+        PveApi.exec(api, node, lb_id, f"chmod +x {userdata_location}")
+        PveApi.exec(api, node, lb_id, userdata_location)
 
         backends = []
         for vmid in plane_ids:
-            ifconfig0 = PveService.current_config(api, node, vmid).ifconfig(0)
+            ifconfig0 = PveApi.current_config(api, node, vmid).ifconfig(0)
             if ifconfig0:
                 vmip = util.Proxmox.extract_ip(ifconfig0)
                 backends.append([vmid, vmip])
@@ -128,11 +129,11 @@ class ScpConfigCmd(Cmd):
         api = util.Proxmox.create_api_client(cfg)
         with open(path, "r", encoding="utf-8") as f:
             location = config.HAPROXY_CONFIG_LOCATION
-            PveService.write_file(api,
-                                  node,
-                                  vm_id,
-                                  location,
-                                  f.read())
+            PveApi.write_file(api,
+                              node,
+                              vm_id,
+                              location,
+                              f.read())
             LbService.reload_haproxy(api, node, vm_id)
 
 
@@ -154,7 +155,7 @@ class UpdateBackendsCmd(Cmd):
         plane_ids = self.parsed_args.planeids
         backends = []
         for vmid in plane_ids:
-            ifconfig0 = PveService.current_config(api, node, vmid).ifconfig(0)
+            ifconfig0 = PveApi.current_config(api, node, vmid).ifconfig(0)
             if ifconfig0:
                 vmip = util.Proxmox.extract_ip(ifconfig0)
                 backends.append([vmid, vmip])

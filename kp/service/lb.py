@@ -3,7 +3,7 @@ import ipaddress
 from typing import List
 
 from proxmoxer import ProxmoxAPI
-from kp.service.pve import PveService
+from kp.client.pve import PveApi
 from kp import util
 from kp import config
 from kp.service.vm import VmService
@@ -16,14 +16,14 @@ class LbService:
                         node: str,
                         vm_id: str):
         cmd = ["apt", "install", "-y", "haproxy"]
-        return PveService.exec(api, node, vm_id, cmd)
+        return PveApi.exec(api, node, vm_id, cmd)
 
     @staticmethod
     def read_haproxy_config(api: ProxmoxAPI,
                             node: str,
                             vm_id: str,
                             config_path=config.HAPROXY_CONFIG_LOCATION):
-        return PveService.read_file(api, node, vm_id, config_path)
+        return PveApi.read_file(api, node, vm_id, config_path)
 
     @staticmethod
     def update_haproxy_config(api: ProxmoxAPI,
@@ -31,14 +31,14 @@ class LbService:
                               vm_id: str,
                               config_content: str,
                               config_path=config.HAPROXY_CONFIG_LOCATION):
-        PveService.write_file(api, node, vm_id, config_path, config_content)
+        PveApi.write_file(api, node, vm_id, config_path, config_content)
 
     @staticmethod
     def reload_haproxy(api: ProxmoxAPI,
                        node: str,
                        vm_id: str):
         cmd = ["systemctl", "reload", "haproxy"]
-        PveService.exec(api, node, vm_id, cmd, interval_check=3)
+        PveApi.exec(api, node, vm_id, cmd, interval_check=3)
 
     @staticmethod
     def render_haproxy_config(backends: list):

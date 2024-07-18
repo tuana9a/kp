@@ -2,7 +2,7 @@ import ipaddress
 
 from typing import List
 from proxmoxer import ProxmoxAPI
-from kp.service.pve import PveService
+from kp.client.pve import PveApi
 from kp import util
 from kp.error import *
 from kp import config
@@ -19,7 +19,8 @@ class ControlPlaneService:
              control_plane_endpoint,
              pod_cidr,
              svc_cidr,
-             timeout=10 * 60):
+             timeout=10 * 60,
+             extra_opts=[]):
         cmd = [
             "kubeadm",
             "init",
@@ -27,7 +28,8 @@ class ControlPlaneService:
             f"--pod-network-cidr={pod_cidr}",
             f"--service-cidr={svc_cidr}",
         ]
-        return PveService.exec(api, node, vm_id, cmd, timeout=timeout)
+        cmd.extend(extra_opts)
+        return PveApi.exec(api, node, vm_id, cmd, timeout=timeout)
 
     @staticmethod
     def create_join_command(api: ProxmoxAPI,
@@ -38,8 +40,8 @@ class ControlPlaneService:
                             is_control_plane=False,
                             timeout=config.TIMEOUT_IN_SECONDS,
                             interval_check=3):
-        exitcode, stdout, stderr = PveService.exec(api, node, vm_id, cmd,
-                                                   timeout=timeout, interval_check=interval_check)
+        exitcode, stdout, stderr = PveApi.exec(api, node, vm_id, cmd,
+                                               timeout=timeout, interval_check=interval_check)
         if exitcode != 0:
             raise CreateJoinCmdFailed(stderr)
         join_cmd = stdout.split()
@@ -59,9 +61,9 @@ class ControlPlaneService:
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "drain", node_name]
         cmd.extend(opts)
         # 30 mins should be enough
-        return PveService.exec(api, node, vm_id, cmd,
-                               interval_check=5,
-                               timeout=30 * 60)
+        return PveApi.exec(api, node, vm_id, cmd,
+                           interval_check=5,
+                           timeout=30 * 60)
 
     @staticmethod
     def uncordon_node(api: ProxmoxAPI,
@@ -72,9 +74,9 @@ class ControlPlaneService:
                       opts=[]):
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "uncordon", node_name]
         cmd.extend(opts)
-        return PveService.exec(api, node, vm_id, cmd,
-                               interval_check=5,
-                               timeout=5 * 60)
+        return PveApi.exec(api, node, vm_id, cmd,
+                           interval_check=5,
+                           timeout=5 * 60)
 
     @staticmethod
     def delete_node(api: ProxmoxAPI,
@@ -83,7 +85,7 @@ class ControlPlaneService:
                     node_name,
                     kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "delete", "node", node_name]
-        return PveService.exec(api, node, vm_id, cmd, interval_check=5)
+        return PveApi.exec(api, node, vm_id, cmd, interval_check=5)
 
     @staticmethod
     def ensure_cert_dirs(api: ProxmoxAPI,
@@ -95,7 +97,7 @@ class ControlPlaneService:
                              ]):
         for d in cert_dirs:
             cmd = ["mkdir", "-p", d]
-            PveService.exec(api, node, vm_id, cmd, interval_check=2)
+            PveApi.exec(api, node, vm_id, cmd, interval_check=2)
 
     @staticmethod
     def cat_kubeconfig(api: ProxmoxAPI,
@@ -103,7 +105,7 @@ class ControlPlaneService:
                        vm_id: str,
                        filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
         cmd = ["cat", filepath]
-        return PveService.exec(api, node, vm_id, cmd, interval_check=2)
+        return PveApi.exec(api, node, vm_id, cmd, interval_check=2)
 
     @staticmethod
     def apply_file(api: ProxmoxAPI,
@@ -112,7 +114,7 @@ class ControlPlaneService:
                    filepath: str,
                    kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
         cmd = ["kubectl", "apply", f"--kubeconfig={kubeconfig_filepath}", "-f", filepath]
-        return PveService.exec(api, node, vm_id, cmd)
+        return PveApi.exec(api, node, vm_id, cmd)
 
     @staticmethod
     def copy_kube_certs(api: ProxmoxAPI,
@@ -122,7 +124,7 @@ class ControlPlaneService:
                         cert_paths=config.KUBERNETES_CERT_PATHS):
         # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/#manual-certs
         for cert_path in cert_paths:
-            r = PveService.read_file(api, node, src_id, cert_path)
+            r = PveApi.read_file(api, node, src_id, cert_path)
             content = r["content"]
             # TODO: check truncated content https://pve.proxmox.com/pve-docs/api-viewer/index.html#/nodes/{node}/qemu/{vmid}/agent/file-read
-            r = PveService.write_file(api, node, dest_id, cert_path, content)
+            r = PveApi.write_file(api, node, dest_id, cert_path, content)
