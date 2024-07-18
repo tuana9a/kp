@@ -21,12 +21,10 @@ class VmService:
     def update_containerd_config(api: ProxmoxAPI,
                                  node: str,
                                  vm_id: str,
-                                 filepath: str):
+                                 content=config.CONTAINERD_CONFIG):
         cmd = "mkdir -p /etc/containerd".split()
         PveApi.exec(api, node, vm_id, cmd, interval_check=2)
-        with open(filepath) as f:
-            path = "/etc/containerd/config.toml"
-            PveApi.write_file(api, node, vm_id, path, f.read())
+        PveApi.write_file(api, node, vm_id, "/etc/containerd/config.toml", content)
 
     @staticmethod
     def restart_containerd(api: ProxmoxAPI,

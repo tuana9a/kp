@@ -56,7 +56,6 @@ class CreateChildControlPlaneCmd(Cmd):
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
 
         self.parser.add_argument("--vm-userdata", type=str, required=True)
-        self.parser.add_argument("--vm-containerd-config", type=str, required=True)
 
     def run(self):
         urllib3.disable_warnings()
@@ -82,7 +81,6 @@ class CreateChildControlPlaneCmd(Cmd):
             or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
-        vm_containerd_config = self.parsed_args.vm_containerd_config
 
         PveApi.clone(api, node, template_id, child_id)
         PveApi.update_config(api, node, child_id,
@@ -111,7 +109,7 @@ class CreateChildControlPlaneCmd(Cmd):
         PveApi.exec(api, node, child_id, f"chmod +x {userdata_location}")
         PveApi.exec(api, node, child_id, userdata_location)
 
-        VmService.update_containerd_config(api, node, child_id, vm_containerd_config)
+        VmService.update_containerd_config(api, node, child_id)
         VmService.restart_containerd(api, node, child_id)
 
         ControlPlaneService.ensure_cert_dirs(api, node, child_id)
@@ -143,7 +141,6 @@ class CreateDadControlPlaneCmd(Cmd):
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
 
         self.parser.add_argument("--vm-userdata", type=str, required=True)
-        self.parser.add_argument("--vm-containerd-config", type=str, required=True)
 
         self.parser.add_argument("--pod-cidr", type=str, required=True)
         self.parser.add_argument("--svc-cidr", type=str, required=True)
@@ -172,7 +169,6 @@ class CreateDadControlPlaneCmd(Cmd):
             or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
-        vm_containerd_config = self.parsed_args.vm_containerd_config
 
         pod_cidr = self.parsed_args.pod_cidr
         svc_cidr = self.parsed_args.svc_cidr
@@ -204,7 +200,7 @@ class CreateDadControlPlaneCmd(Cmd):
         PveApi.exec(api, node, dad_id, f"chmod +x {userdata_location}")
         PveApi.exec(api, node, dad_id, userdata_location)
 
-        VmService.update_containerd_config(api, node, dad_id, vm_containerd_config)
+        VmService.update_containerd_config(api, node, dad_id)
         VmService.restart_containerd(api, node, dad_id)
         lb_ifconfig0 = PveApi.current_config(api, node, lb_id).ifconfig(0)
         if not lb_ifconfig0:
@@ -297,7 +293,6 @@ class CreateStandaloneControlPlaneCmd(Cmd):
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
 
         self.parser.add_argument("--vm-userdata", type=str, required=True)
-        self.parser.add_argument("--vm-containerd-config", type=str, required=True)
 
         self.parser.add_argument("--pod-cidr", type=str, required=True)
         self.parser.add_argument("--svc-cidr", type=str, required=True)
@@ -325,7 +320,6 @@ class CreateStandaloneControlPlaneCmd(Cmd):
             or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
-        vm_containerd_config = self.parsed_args.vm_containerd_config
 
         pod_cidr = self.parsed_args.pod_cidr
         svc_cidr = self.parsed_args.svc_cidr
@@ -356,7 +350,7 @@ class CreateStandaloneControlPlaneCmd(Cmd):
         PveApi.exec(api, node, vmid, f"chmod +x {userdata_location}")
         PveApi.exec(api, node, vmid, userdata_location)
 
-        VmService.update_containerd_config(api, node, vmid, vm_containerd_config)
+        VmService.update_containerd_config(api, node, vmid)
         VmService.restart_containerd(api, node, vmid)
 
         ControlPlaneService.init(api,

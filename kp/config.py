@@ -3,6 +3,18 @@ TIMEOUT_IN_SECONDS = 30 * 60
 PROXMOX_VM_ID_RANGE = [100, 99999]
 PROXMOX_VM_TAG_DELIMITER = ";"
 
+CONTAINERD_CONFIG = """# https://github.com/etcd-io/etcd/issues/13670
+version = 2
+[plugins]
+  [plugins."io.containerd.grpc.v1.cri"]
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+"""
+
 KUBERNETES_ADMIN_CONF_PATH = "/etc/kubernetes/admin.conf"
 KUBERNETES_CERT_PATHS = [
     "/etc/kubernetes/pki/ca.crt",
