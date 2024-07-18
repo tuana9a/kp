@@ -8,6 +8,7 @@ from kp.util import Cmd
 from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
 from kp.client.pve import PveApi
+from kp.cmd.etcd.etcdctl import EtcdctlCmd
 
 
 class ControlPlaneCmd(Cmd):
@@ -21,11 +22,9 @@ class ControlPlaneCmd(Cmd):
                              SaveKubeConfigCmd(),
                              CopyKubeCertsCmd(),
                              JoinControlPlaneCmd(),
-                             EtcdctlMemberListCmd(),
-                             EtcdctlEndpointStatusClusterCmd(),
-                             EtcdctlMemberRemoveCmd(),
-                             EtcdctlSnapshotSaveCmd(),
-                             BackupCmd(),
+                             EtcdctlCmd(),
+                             HotBackupCmd(),
+                             BackupCertsCmd(),
                              RestoreClusterPlanesCmd(),
                              InitClusterPlanesCmd(),
                              CreateChildControlPlaneCmd(),
@@ -494,111 +493,9 @@ class JoinControlPlaneCmd(Cmd):
         PveApi.exec(api, node, child_id, join_cmd)
 
 
-class EtcdctlMemberListCmd(Cmd):
+class HotBackupCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("etcdctl-member-list")
-
-    def setup(self):
-        self.parser.add_argument("vmid", type=int)
-
-    def run(self):
-        urllib3.disable_warnings()
-        cfg = util.load_config()
-        node = cfg.proxmox_node
-        api = util.Proxmox.create_api_client(cfg)
-        vmid = self.parsed_args.vmid
-        util.log.info("vmid", vmid)
-        opts = [
-            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
-            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
-            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
-        ]
-        cmd = "/usr/local/bin/etcdctl member list -w table".split()
-        cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
-
-
-class EtcdctlEndpointStatusClusterCmd(Cmd):
-    def __init__(self) -> None:
-        super().__init__("etcdctl-endpoint-status-cluster")
-
-    def setup(self):
-        self.parser.add_argument("vmid", type=int)
-
-    def run(self):
-        urllib3.disable_warnings()
-        cfg = util.load_config()
-        node = cfg.proxmox_node
-        api = util.Proxmox.create_api_client(cfg)
-        vmid = self.parsed_args.vmid
-        util.log.info("vmid", vmid)
-        opts = [
-            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
-            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
-            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
-        ]
-        cmd = "/usr/local/bin/etcdctl endpoint status --cluster -w table".split()
-        cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
-
-
-class EtcdctlMemberRemoveCmd(Cmd):
-    def __init__(self) -> None:
-        super().__init__("etcdctl-member-remove", aliases=["etcdctl-member-rm"])
-
-    def setup(self):
-        self.parser.add_argument("vmid", type=int)
-        self.parser.add_argument("member_id", type=str)
-
-    def run(self):
-        urllib3.disable_warnings()
-        cfg = util.load_config()
-        node = cfg.proxmox_node
-        api = util.Proxmox.create_api_client(cfg)
-        vmid = self.parsed_args.vmid
-        member_id = self.parsed_args.member_id
-        util.log.info("vmid", vmid, "member_id", member_id)
-        opts = [
-            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
-            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
-            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
-        ]
-        cmd = f"/usr/local/bin/etcdctl member remove {member_id}".split()
-        cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
-
-
-class EtcdctlSnapshotSaveCmd(Cmd):
-    def __init__(self) -> None:
-        super().__init__("etcdctl-snapshot-save")
-
-    def setup(self):
-        self.parser.add_argument("vmid", type=int)
-        self.parser.add_argument("--backup-dir", type=str, default="/root/backup")
-
-    def run(self):
-        urllib3.disable_warnings()
-        cfg = util.load_config()
-        node = cfg.proxmox_node
-        api = util.Proxmox.create_api_client(cfg)
-        vmid = self.parsed_args.vmid
-        backup_dir = self.parsed_args.backup_dir
-        util.log.info("vmid", vmid, "backup_dir", backup_dir)
-        opts = [
-            "--cacert=/etc/kubernetes/pki/etcd/ca.crt",
-            "--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
-            "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
-        ]
-        cmd = f"mkdir -p {backup_dir}".split()
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
-        cmd = f"/usr/local/bin/etcdctl snapshot save {backup_dir}/snapshot.db".split()
-        cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
-
-
-class BackupCmd(Cmd):
-    def __init__(self) -> None:
-        super().__init__("backup")
+        super().__init__("hot-backup")
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
@@ -618,6 +515,25 @@ class BackupCmd(Cmd):
         cmd = f"cp -r /var/lib/etcd/ {backup_dir}"
         PveApi.exec(api, node, vmid, cmd, interval_check=3)
 
+class BackupCertsCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("backup-certs")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+        self.parser.add_argument("--backup-dir", type=str, default="/root/backup")
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        backup_dir = self.parsed_args.backup_dir
+        util.log.info("vmid", vmid, "backup_dir", backup_dir)
+        cmd = f"mkdir -p {backup_dir}".split()
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        cmd = f"cp -r /etc/kubernetes/pki {backup_dir}"
+        PveApi.exec(api, node, vmid, cmd, interval_check=3)
 
 class RestoreClusterPlanesCmd(Cmd):
     def __init__(self) -> None:
@@ -672,6 +588,7 @@ class RestoreClusterPlanesCmd(Cmd):
                                  pod_cidr=pod_cidr,
                                  svc_cidr=svc_cidr)
 
+
 class UpgradeFirstChildCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("upgrade-first-child")
@@ -719,6 +636,7 @@ class UpgradeFirstChildCmd(Cmd):
         VmService.restart_kubelet(api, node, child_id)
         ControlPlaneService.uncordon_node(api, node, dad_id, child_vm.name)
 
+
 class UpgradeSecondChildCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("upgrade-second-child")
@@ -748,7 +666,7 @@ class UpgradeSecondChildCmd(Cmd):
         PveApi.write_file(api, node, child_id, vm_userdata, userdata_content)
         PveApi.exec(api, node, child_id, f"chmod +x {vm_userdata}")
         PveApi.exec(api, node, child_id, vm_userdata)
-        PveApi.exec(api, node, child_id, f"sudo kubeadm upgrade node".split()) # only line that diff from UpgradeFirstChildCmd
+        PveApi.exec(api, node, child_id, f"sudo kubeadm upgrade node".split())  # only line that diff from UpgradeFirstChildCmd
 
         ControlPlaneService.drain_node(api, node, dad_id, child_vm.name)
         """
