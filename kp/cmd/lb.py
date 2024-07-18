@@ -128,7 +128,7 @@ class ScpConfigCmd(Cmd):
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         with open(path, "r", encoding="utf-8") as f:
-            location = config.HAPROXY_CONFIG_LOCATION
+            location = config.HAPROXY_CFG_PATH
             PveApi.write_file(api,
                               node,
                               vm_id,
@@ -143,16 +143,16 @@ class UpdateBackendsCmd(Cmd):
         super().__init__("update-backends", aliases=["update-config"])
 
     def setup(self):
-        self.parser.add_argument("lbid", type=int)
-        self.parser.add_argument("planeids", nargs="+")
+        self.parser.add_argument("--lb-id", type=int, required=True)
+        self.parser.add_argument("--plane-ids", nargs="+", required=True)
 
     def run(self):
         urllib3.disable_warnings()
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
-        lb_id = self.parsed_args.lbid
-        plane_ids = self.parsed_args.planeids
+        lb_id = self.parsed_args.lb_id
+        plane_ids = self.parsed_args.plane_ids
         backends = []
         for vmid in plane_ids:
             ifconfig0 = PveApi.current_config(api, node, vmid).ifconfig(0)

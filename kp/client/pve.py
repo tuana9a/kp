@@ -113,11 +113,11 @@ class PveApi:
         """
         automatically scan the control planes by tag
         """
-        ctlpl_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
+        planes: List[VmResponse] = util.Proxmox.filter_vm_tag(
             PveApi.list_vm(api, node, id_range=id_range),
             config.Tag.ctlpl)
-        util.log.info("detect_control_planes", len(ctlpl_list))
-        return ctlpl_list
+        util.log.info("detect_control_planes", len(planes))
+        return planes
 
     @staticmethod
     # TODO: refactor

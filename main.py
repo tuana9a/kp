@@ -2,7 +2,6 @@ import sys
 
 from kp.util import Cmd
 from kp.cmd.plane import ControlPlaneCmd
-from kp.cmd.planes import MultipleControlPlanesCmd
 from kp.cmd.lb import LbCmd
 from kp.cmd.help import TreeCmd
 from kp.cmd.worker import WorkerCmd
@@ -15,7 +14,6 @@ class MainCmd(Cmd):
         super().__init__("kp",
                          childs=[
                              ControlPlaneCmd(),
-                             MultipleControlPlanesCmd(),
                              LbCmd(),
                              WorkerCmd(),
                              VmCmd(),

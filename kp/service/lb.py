@@ -22,7 +22,7 @@ class LbService:
     def read_haproxy_config(api: ProxmoxAPI,
                             node: str,
                             vm_id: str,
-                            config_path=config.HAPROXY_CONFIG_LOCATION):
+                            config_path=config.HAPROXY_CFG_PATH):
         return PveApi.read_file(api, node, vm_id, config_path)
 
     @staticmethod
@@ -30,7 +30,7 @@ class LbService:
                               node: str,
                               vm_id: str,
                               config_content: str,
-                              config_path=config.HAPROXY_CONFIG_LOCATION):
+                              config_path=config.HAPROXY_CFG_PATH):
         PveApi.write_file(api, node, vm_id, config_path, config_content)
 
     @staticmethod

@@ -49,8 +49,8 @@ virt-customize -a $img_file --install qemu-guest-agent
 img_file=jammy.img
 storage=local-lvm
 vmid=9999
-core_count=4
-mem_size=8192
+core_count=1
+mem_size=1024
 
 qm create $vmid --cores $core_count --memory $mem_size --scsihw virtio-scsi-pci
 qm set $vmid --name jammy
@@ -69,23 +69,18 @@ See [./app/payload.py#Cfg](./app/payload.py#Cfg)
 
 ```mermaid
 graph TD;
-  cli-->service;
-  cli-->model;
-  service-->model;
+  cmd-->service;
+  service-->api;
   service-->util;
-  cli-->util;
-  model-->util;
+  cmd-->util;
   util-->config;
   util-->logger;
   payload-->config;
-  model-->payload;
   util-->payload;
   service-->payload;
-  model-->config;
   service-->config;
-  cli-->config;
+  cmd-->config;
   service-->error;
-  model-->error;
   error;
 ```
 

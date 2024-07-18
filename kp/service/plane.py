@@ -54,7 +54,7 @@ class ControlPlaneService:
                    node: str,
                    vm_id: str,
                    node_name: str,
-                   kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION,
+                   kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_PATH,
                    opts=["--ignore-daemonsets",
                          "--delete-emptydir-data",
                          "--disable-eviction=true"]):
@@ -70,7 +70,7 @@ class ControlPlaneService:
                       node: str,
                       vm_id: str,
                       node_name: str,
-                      kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION,
+                      kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_PATH,
                       opts=[]):
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "uncordon", node_name]
         cmd.extend(opts)
@@ -83,7 +83,7 @@ class ControlPlaneService:
                     node: str,
                     vm_id: str,
                     node_name,
-                    kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
+                    kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_PATH):
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "delete", "node", node_name]
         return PveApi.exec(api, node, vm_id, cmd, interval_check=5)
 
@@ -103,7 +103,7 @@ class ControlPlaneService:
     def cat_kubeconfig(api: ProxmoxAPI,
                        node: str,
                        vm_id: str,
-                       filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
+                       filepath=config.KUBERNETES_ADMIN_CONF_PATH):
         cmd = ["cat", filepath]
         return PveApi.exec(api, node, vm_id, cmd, interval_check=2)
 
@@ -112,7 +112,7 @@ class ControlPlaneService:
                    node: str,
                    vm_id: str,
                    filepath: str,
-                   kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_LOCATION):
+                   kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_PATH):
         cmd = ["kubectl", "apply", f"--kubeconfig={kubeconfig_filepath}", "-f", filepath]
         return PveApi.exec(api, node, vm_id, cmd)
 
