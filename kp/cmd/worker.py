@@ -44,7 +44,6 @@ class CreateWorkerCmd(Cmd):
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
 
         self.parser.add_argument("--vm-userdata", type=str, required=True)
-        self.parser.add_argument("--vm-containerd-config", type=str, required=True)
 
     def run(self):
         urllib3.disable_warnings()
@@ -71,7 +70,6 @@ class CreateWorkerCmd(Cmd):
             or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
-        vm_containerd_config = self.parsed_args.vm_containerd_config
 
         PveApi.clone(api, node, template_id, child_id)
 
@@ -101,7 +99,7 @@ class CreateWorkerCmd(Cmd):
         PveApi.exec(api, node, child_id, f"chmod +x {userdata_location}")
         PveApi.exec(api, node, child_id, userdata_location)
 
-        VmService.update_containerd_config(api, node, child_id, vm_containerd_config)
+        VmService.update_containerd_config(api, node, child_id)
         VmService.restart_containerd(api, node, child_id)
 
         join_cmd = ControlPlaneService.create_join_command(api, node, dad_id)

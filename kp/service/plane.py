@@ -8,7 +8,7 @@ from kp.error import *
 from kp import config
 from kp.service.vm import VmService
 from kp.service.lb import LbService
-from kp.payload import Cfg, VmResponse
+from kp.payload import VmResponse
 
 
 class ControlPlaneService:
