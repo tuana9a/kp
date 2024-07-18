@@ -1,3 +1,5 @@
+from typing import List
+
 TIMEOUT_IN_SECONDS = 30 * 60
 
 PROXMOX_VM_ID_RANGE = [100, 99999]
@@ -87,6 +89,37 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 apt-get update
 apt install -y kubeadm='{kubernetes_version_patch}-*'
 """
+
+
+class Cfg:
+    def __init__(
+            self,
+            proxmox_node: str,
+            proxmox_host: str,
+            proxmox_verify_ssl=False,
+            proxmox_user: str = None,
+            proxmox_password: str = None,
+            proxmox_token_name: str = None,
+            proxmox_token_value: str = None,
+            vm_id_range: List[int] = PROXMOX_VM_ID_RANGE,
+            vm_preserved_ids: List[int] = [],
+            vm_preserved_ips: List[str] = [],
+            vm_ssh_keys: str = "",
+            vm_name_prefix="i-",
+            **kwargs) -> None:
+        self.proxmox_node = proxmox_node
+        self.proxmox_host = proxmox_host
+        self.proxmox_verify_ssl = proxmox_verify_ssl
+        self.proxmox_user = proxmox_user
+        self.proxmox_password = proxmox_password
+        self.proxmox_token_name = proxmox_token_name
+        self.proxmox_token_value = proxmox_token_value
+        self.vm_id_range = vm_id_range
+        self.vm_preserved_ids = vm_preserved_ids
+        self.vm_preserved_ips = vm_preserved_ips
+        self.vm_ssh_keys = vm_ssh_keys
+        self.vm_name_prefix = vm_name_prefix
+        self.kwargs = kwargs
 
 
 class Tag:

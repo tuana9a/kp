@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Mapping
+
 import argparse
 import os
 import json
@@ -7,12 +7,12 @@ import urllib
 import random
 import string
 
-from typing import List
+from typing import List, Mapping
 from proxmoxer import ProxmoxAPI
 from kp.logger import Logger
 from kp.error import *
 from kp import config
-from kp.payload import *
+from kp.config import Cfg
 
 
 log = Logger.from_env()
@@ -94,28 +94,6 @@ class Proxmox:
             verify_ssl=False,
         )
 
-    def filter_vm_by_id(vm_list: List[VmResponse], vm_id: int):
-        for x in vm_list:
-            if str(x.vmid) == str(vm_id):
-                log.debug("util.filter_id", x.vmid)
-                return x
-
-        raise VmNotFoundException(vm_id)
-
-    def filter_vm_tag(vm_list: List[VmResponse],
-                      tag: str,
-                      delimiter=config.PROXMOX_VM_TAG_DELIMITER):
-
-        result: List[VmResponse] = []
-
-        for x in vm_list:
-            tags = set(x.tags.split(delimiter))
-            if tag in tags:
-                result.append(x)
-        log.debug("util.filter_tag", tag,
-                  list(map(lambda x: x.vmid, result)))
-        return result
-
 
 class Cmd:
 
@@ -141,12 +119,8 @@ class Cmd:
             for child_alias in child.aliases:
                 self.add_child(child_alias, child)
         if self.has_child:
-            self.parser.add_argument("subcommand",
-                                     type=str,
-                                     choices=self.child_map.keys())
-            self.parser.add_argument("remains",
-                                     type=str,
-                                     nargs=argparse.REMAINDER)
+            self.parser.add_argument("subcommand", type=str, choices=self.child_map.keys())
+            self.parser.add_argument("remains", type=str, nargs=argparse.REMAINDER)
             self.correct_child_info()
 
     def add_child(self, name, child: Cmd):

@@ -509,6 +509,7 @@ class HotBackupCmd(Cmd):
         cmd = f"cp -r /var/lib/etcd/ {backup_dir}"
         PveApi.exec(api, node, vmid, cmd, interval_check=3)
 
+
 class BackupCertsCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("backup-certs")
@@ -528,6 +529,7 @@ class BackupCertsCmd(Cmd):
         PveApi.exec(api, node, vmid, cmd, interval_check=3)
         cmd = f"cp -r /etc/kubernetes/pki {backup_dir}"
         PveApi.exec(api, node, vmid, cmd, interval_check=3)
+
 
 class RestoreClusterPlanesCmd(Cmd):
     def __init__(self) -> None:

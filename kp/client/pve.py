@@ -113,11 +113,16 @@ class PveApi:
         """
         automatically scan the control planes by tag
         """
-        planes: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            PveApi.list_vm(api, node, id_range=id_range),
-            config.Tag.ctlpl)
-        util.log.info("detect_control_planes", len(planes))
-        return planes
+        tag = config.Tag.ctlpl
+        delimiter = config.PROXMOX_VM_TAG_DELIMITER
+        result = []
+        vm_list = PveApi.list_vm(api, node, id_range=id_range)
+        for x in vm_list:
+            tags = set(x.tags.split(delimiter))
+            if tag in tags:
+                result.append(x)
+        util.log.info("detect_control_planes", len(result))
+        return result
 
     @staticmethod
     # TODO: refactor
@@ -129,11 +134,16 @@ class PveApi:
         """
         automatically scan the control planes by tag
         """
-        lb_list: List[VmResponse] = util.Proxmox.filter_vm_tag(
-            PveApi.list_vm(api, node, id_range=id_range),
-            config.Tag.lb)
-        util.log.info("detect_load_balancers", len(lb_list))
-        return lb_list
+        tag = config.Tag.lb
+        delimiter = config.PROXMOX_VM_TAG_DELIMITER
+        result = []
+        vm_list = PveApi.list_vm(api, node, id_range=id_range)
+        for x in vm_list:
+            tags = set(x.tags.split(delimiter))
+            if tag in tags:
+                result.append(x)
+        util.log.info("detect_load_balancers", len(result))
+        return result
 
     @staticmethod
     def delete_vm(api: ProxmoxAPI,

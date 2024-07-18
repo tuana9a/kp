@@ -7,7 +7,7 @@ from kp.client.pve import PveApi
 from kp import util
 from kp import config
 from kp.service.vm import VmService
-from kp.payload import Cfg, VmResponse
+from kp.payload import VmResponse
 
 
 class LbService:
