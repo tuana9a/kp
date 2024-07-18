@@ -185,6 +185,7 @@ class UpgradeCmd(Cmd):
         PveApi.write_file(api, node, child_id, vm_userdata, userdata_content)
         PveApi.exec(api, node, child_id, f"chmod +x {vm_userdata}")
         PveApi.exec(api, node, child_id, vm_userdata)
+        PveApi.exec(api, node, child_id, "sudo kubeadm upgrade node".split())
 
         ControlPlaneService.drain_node(api, node, dad_id, child_vm.name)
         """

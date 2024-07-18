@@ -31,6 +31,8 @@ class ControlPlaneCmd(Cmd):
                              CreateChildControlPlaneCmd(),
                              CreateDadControlPlaneCmd(),
                              DeleteChildControlPlaneCmd(),
+                             UpgradeFirstChildCmd(),
+                             UpgradeSecondChildCmd(),
                          ],
                          aliases=["plane"])
 
@@ -669,3 +671,96 @@ class RestoreClusterPlanesCmd(Cmd):
                                  extra_opts=["--ignore-preflight-errors=DirAvailable--var-lib-etcd"],
                                  pod_cidr=pod_cidr,
                                  svc_cidr=svc_cidr)
+
+class UpgradeFirstChildCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("upgrade-first-child")
+
+    def setup(self):
+        self.parser.add_argument("--dad-id", type=int, required=True)
+        self.parser.add_argument("--child-id", type=int, required=True)
+        self.parser.add_argument("--kubernetes-semver", type=str, required=True)
+
+    def run(self):
+        urllib3.disable_warnings()
+        args = self.parsed_args
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        dad_id = self.parsed_args.dad_id
+        child_id = self.parsed_args.child_id
+        kubernetes_version_minor = ".".join(self.parsed_args.kubernetes_semver.split(".")[0:2])
+        kubernetes_version_patch = ".".join(self.parsed_args.kubernetes_semver.split(".")[0:3])
+
+        child_vm = PveApi.find_vm_by_id(api, node, child_id)
+
+        vm_userdata = "/usr/local/bin/upgrade.sh"
+        tmpl = config.UPGRADE_PLANE_SCRIPT
+        userdata_content = tmpl.format(kubernetes_version_minor=kubernetes_version_minor,
+                                       kubernetes_version_patch=kubernetes_version_patch)
+        PveApi.write_file(api, node, child_id, vm_userdata, userdata_content)
+        PveApi.exec(api, node, child_id, f"chmod +x {vm_userdata}")
+        PveApi.exec(api, node, child_id, vm_userdata)
+        PveApi.exec(api, node, child_id, "sudo kubeadm upgrade plan".split())
+        PveApi.exec(api, node, child_id, f"sudo kubeadm upgrade apply v{kubernetes_version_patch}".split())
+
+        ControlPlaneService.drain_node(api, node, dad_id, child_vm.name)
+        """
+        # NOTE: with quote at package version will not work
+        # Eg: apt install -y kubelet="1.29.6-*"
+            2024-07-16 00:18:22 [DEBUG] pve-cobi 128 exec 333843 stderr
+            E: Version '"1.29.6-*"' for 'kubelet' was not found
+            E: Version '"1.29.6-*"' for 'kubectl' was not found
+        # I think is because of shell text processing
+        """
+        cmd = f"apt install -y kubelet={kubernetes_version_patch}-* kubectl={kubernetes_version_patch}-*".split()
+        PveApi.exec(api, node, child_id, cmd)
+        VmService.systemctl_daemon_reload(api, node, child_id)
+        VmService.restart_kubelet(api, node, child_id)
+        ControlPlaneService.uncordon_node(api, node, dad_id, child_vm.name)
+
+class UpgradeSecondChildCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("upgrade-second-child")
+
+    def setup(self):
+        self.parser.add_argument("--dad-id", type=int, required=True)
+        self.parser.add_argument("--child-id", type=int, required=True)
+        self.parser.add_argument("--kubernetes-semver", type=str, required=True)
+
+    def run(self):
+        urllib3.disable_warnings()
+        args = self.parsed_args
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        dad_id = self.parsed_args.dad_id
+        child_id = self.parsed_args.child_id
+        kubernetes_version_minor = ".".join(self.parsed_args.kubernetes_semver.split(".")[0:2])
+        kubernetes_version_patch = ".".join(self.parsed_args.kubernetes_semver.split(".")[0:3])
+
+        child_vm = PveApi.find_vm_by_id(api, node, child_id)
+
+        vm_userdata = "/usr/local/bin/upgrade.sh"
+        tmpl = config.UPGRADE_PLANE_SCRIPT
+        userdata_content = tmpl.format(kubernetes_version_minor=kubernetes_version_minor,
+                                       kubernetes_version_patch=kubernetes_version_patch)
+        PveApi.write_file(api, node, child_id, vm_userdata, userdata_content)
+        PveApi.exec(api, node, child_id, f"chmod +x {vm_userdata}")
+        PveApi.exec(api, node, child_id, vm_userdata)
+        PveApi.exec(api, node, child_id, f"sudo kubeadm upgrade node".split()) # only line that diff from UpgradeFirstChildCmd
+
+        ControlPlaneService.drain_node(api, node, dad_id, child_vm.name)
+        """
+        # NOTE: with quote at package version will not work
+        # Eg: apt install -y kubelet="1.29.6-*"
+            2024-07-16 00:18:22 [DEBUG] pve-cobi 128 exec 333843 stderr
+            E: Version '"1.29.6-*"' for 'kubelet' was not found
+            E: Version '"1.29.6-*"' for 'kubectl' was not found
+        # I think is because of shell text processing
+        """
+        cmd = f"apt install -y kubelet={kubernetes_version_patch}-* kubectl={kubernetes_version_patch}-*".split()
+        PveApi.exec(api, node, child_id, cmd)
+        VmService.systemctl_daemon_reload(api, node, child_id)
+        VmService.restart_kubelet(api, node, child_id)
+        ControlPlaneService.uncordon_node(api, node, dad_id, child_vm.name)

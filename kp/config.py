@@ -54,6 +54,17 @@ backend control-plane
 {control_plane_backends}
 """
 
+UPGRADE_PLANE_SCRIPT = """# Add the repository for K8S
+kubernetes_version="{kubernetes_version_minor}"
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/Release.key | gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+
+# Install kubernetes dependencies
+apt-get update
+apt install -y kubeadm='{kubernetes_version_patch}-*'
+"""
+
 UPGRADE_WORKER_SCRIPT = """# Add the repository for K8S
 kubernetes_version="{kubernetes_version_minor}"
 install -m 0755 -d /etc/apt/keyrings
@@ -63,8 +74,6 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 # Install kubernetes dependencies
 apt-get update
 apt install -y kubeadm='{kubernetes_version_patch}-*'
-
-sudo kubeadm upgrade node
 """
 
 

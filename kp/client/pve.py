@@ -161,7 +161,7 @@ class PveApi:
              vm_id: str,
              cmd: List[str],
              timeout=config.TIMEOUT_IN_SECONDS,
-             interval_check=10):
+             interval_check=5):
         duration = 0
         r = api.nodes(node).qemu(vm_id).agent.exec.post(command=cmd)
         pid = r["pid"]
