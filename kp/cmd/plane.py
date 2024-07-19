@@ -395,9 +395,8 @@ class ViewKubeConfigCmd(Cmd):
                                  default="/etc/kubernetes/admin.conf")
 
     def run(self):
-        args = self.parsed_args
-        vm_id = args.vmid
-        filepath = args.file_path
+        vm_id = self.parsed_args.vmid
+        filepath = self.parsed_args.file_path
         urllib3.disable_warnings()
         util.log.info("vm_id", vm_id)
         cfg = util.load_config()
@@ -423,10 +422,9 @@ class SaveKubeConfigCmd(Cmd):
                                  default="~/.kube/config")
 
     def run(self):
-        args = self.parsed_args
-        vm_id = args.vmid
-        filepath = args.file_path
-        output = args.output
+        vm_id = self.parsed_args.vmid
+        filepath = self.parsed_args.file_path
+        output = self.parsed_args.output
         urllib3.disable_warnings()
         util.log.info("vm_id", vm_id)
         cfg = util.load_config()
@@ -448,9 +446,8 @@ class CopyKubeCertsCmd(Cmd):
         self.parser.add_argument("dest_id", type=int)
 
     def run(self):
-        args = self.parsed_args
-        src_id = args.src_id
-        dest_id = args.dest_id
+        src_id = self.parsed_args.src_id
+        dest_id = self.parsed_args.dest_id
         urllib3.disable_warnings()
         util.log.info("src", src_id, "dest", dest_id)
         cfg = util.load_config()
@@ -596,7 +593,6 @@ class UpgradeFirstChildCmd(Cmd):
 
     def run(self):
         urllib3.disable_warnings()
-        args = self.parsed_args
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
@@ -644,7 +640,6 @@ class UpgradeSecondChildCmd(Cmd):
 
     def run(self):
         urllib3.disable_warnings()
-        args = self.parsed_args
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
@@ -678,3 +673,11 @@ class UpgradeSecondChildCmd(Cmd):
         VmService.systemctl_daemon_reload(api, node, child_id)
         VmService.restart_kubelet(api, node, child_id)
         ControlPlaneService.uncordon_node(api, node, dad_id, child_vm.name)
+
+class InstallKubevipCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("install-kube-vip")
+    def setup(self):
+        pass
+    def run(self):
+        pass
