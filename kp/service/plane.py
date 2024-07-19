@@ -1,3 +1,4 @@
+import os
 import ipaddress
 
 from typing import List
@@ -43,7 +44,7 @@ class ControlPlaneService:
         exitcode, stdout, stderr = PveApi.exec(api, node, vm_id, cmd,
                                                timeout=timeout, interval_check=interval_check)
         if exitcode != 0:
-            raise CreateJoinCmdFailed(stderr)
+            raise CreateJoinCmdException(stderr)
         join_cmd = stdout.split()
         if is_control_plane:
             join_cmd.append("--control-plane")
@@ -128,3 +129,12 @@ class ControlPlaneService:
             content = r["content"]
             # TODO: check truncated content https://pve.proxmox.com/pve-docs/api-viewer/index.html#/nodes/{node}/qemu/{vmid}/agent/file-read
             r = PveApi.write_file(api, node, dest_id, cert_path, content)
+
+    @staticmethod
+    def install_static_pod(api: ProxmoxAPI,
+                           node: str,
+                           vmid,
+                           filename: str,
+                           content: str,
+                           static_pod_dir=config.KUBERNETES_STATIC_POD_DIR):
+        PveApi.write_file(api, node, vmid, os.path.join(static_pod_dir, filename), content)

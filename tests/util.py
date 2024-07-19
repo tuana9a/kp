@@ -47,6 +47,11 @@ class TestFindMissing(unittest.TestCase):
 class TestProxmoxUtil(unittest.TestCase):
 
     def test_extract_ip(self):
-        self.assertEqual(
-            util.Proxmox.extract_ip(
-                "ip=192.168.56.123/24,gw=192.168.56.1"), "192.168.56.123")
+        self.assertEqual(util.Proxmox.extract_ip("ip=192.168.56.123/24,gw=192.168.56.1"), "192.168.56.123")
+
+class TestKubevip(unittest.TestCase):
+
+    def test_render_pod_manifest(self):
+        manifest = util.Kubevip.render_pod_manifest(inf="eth0", vip="192.168.56.21")
+        self.assertNotEqual(manifest.find("value: eth0"), -1)
+        self.assertNotEqual(manifest.find("value: 192.168.56.21"), -1)

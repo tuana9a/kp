@@ -9,6 +9,7 @@ from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
 from kp.client.pve import PveApi
 from kp.cmd.etcd.etcdctl import EtcdctlCmd
+from kp.cmd.v2.plane import V2Cmd
 
 
 class ControlPlaneCmd(Cmd):
@@ -16,27 +17,28 @@ class ControlPlaneCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("control-plane",
                          childs=[
-                             CreateStandaloneControlPlaneCmd(),
-                             DeleteStandaloneControlPlaneCmd(),
+                             CreateStandaloneCmd(),
+                             DeleteStandaloneCmd(),
                              ViewKubeConfigCmd(),
                              SaveKubeConfigCmd(),
                              CopyKubeCertsCmd(),
-                             JoinControlPlaneCmd(),
+                             JoinCmd(),
                              EtcdctlCmd(),
                              HotBackupCmd(),
                              BackupCertsCmd(),
-                             RestoreClusterPlanesCmd(),
-                             InitClusterPlanesCmd(),
-                             CreateChildControlPlaneCmd(),
-                             CreateDadControlPlaneCmd(),
-                             DeleteChildControlPlaneCmd(),
+                             RestoreDadCmd(),
+                             InitDadCmd(),
+                             CreateChildCmd(),
+                             CreateDadCmd(),
+                             DeleteChildCmd(),
                              UpgradeFirstChildCmd(),
                              UpgradeSecondChildCmd(),
+                             V2Cmd(),
                          ],
                          aliases=["plane"])
 
 
-class CreateChildControlPlaneCmd(Cmd):
+class CreateChildCmd(Cmd):
     def __init__(self) -> None:
         super().__init__("create-child")
 
@@ -121,9 +123,9 @@ class CreateChildControlPlaneCmd(Cmd):
         PveApi.exec(api, node, child_id, join_cmd)
 
 
-class CreateDadControlPlaneCmd(Cmd):
+class CreateDadCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("create-dad", aliases=["create-cluster-planes"])
+        super().__init__("create-dad")
 
     def setup(self):
         self.parser.add_argument("--dad-id", type=int, required=True)
@@ -215,7 +217,7 @@ class CreateDadControlPlaneCmd(Cmd):
         return dad_id
 
 
-class DeleteChildControlPlaneCmd(Cmd):
+class DeleteChildCmd(Cmd):
 
     def __init__(self) -> None:
         super().__init__("delete-child", aliases=["remove-child", "rm-child"])
@@ -234,18 +236,18 @@ class DeleteChildControlPlaneCmd(Cmd):
         api = util.Proxmox.create_api_client(cfg)
         child_vm = PveApi.find_vm_by_id(api, node, child_id)
 
-        VmService.kubeadm_reset(api, node, child_id)
         ControlPlaneService.drain_node(api, node, dad_id, child_vm.name)
         ControlPlaneService.delete_node(api, node, dad_id, child_vm.name)
+        VmService.kubeadm_reset(api, node, child_id)
 
         PveApi.shutdown(api, node, child_id)
         PveApi.wait_for_shutdown(api, node, child_id)
         PveApi.delete_vm(api, node, child_id)
 
 
-class InitClusterPlanesCmd(Cmd):
+class InitDadCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("init-cluster-planes")
+        super().__init__("init-dad")
 
     def setup(self):
         self.parser.add_argument("--lb-id", type=int, required=True)
@@ -273,7 +275,7 @@ class InitClusterPlanesCmd(Cmd):
                                  svc_cidr=svc_cidr)
 
 
-class CreateStandaloneControlPlaneCmd(Cmd):
+class CreateStandaloneCmd(Cmd):
 
     def __init__(self) -> None:
         super().__init__("create-standalone")
@@ -362,7 +364,7 @@ class CreateStandaloneControlPlaneCmd(Cmd):
         return vmid
 
 
-class DeleteStandaloneControlPlaneCmd(Cmd):
+class DeleteStandaloneCmd(Cmd):
 
     def __init__(self) -> None:
         super().__init__("delete-standalone", aliases=["remove-standalone", "rm-standalone"])
@@ -457,7 +459,7 @@ class CopyKubeCertsCmd(Cmd):
         ControlPlaneService.copy_kube_certs(api, node, src_id, dest_id)
 
 
-class JoinControlPlaneCmd(Cmd):
+class JoinCmd(Cmd):
 
     def __init__(self) -> None:
         super().__init__("join")
@@ -528,9 +530,9 @@ class BackupCertsCmd(Cmd):
         PveApi.exec(api, node, vmid, cmd, interval_check=3)
 
 
-class RestoreClusterPlanesCmd(Cmd):
+class RestoreDadCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("restore-cluster-planes")
+        super().__init__("restore-dad")
 
     def setup(self):
         self.parser.add_argument("--lb-id", type=int, required=True)
@@ -673,11 +675,3 @@ class UpgradeSecondChildCmd(Cmd):
         VmService.systemctl_daemon_reload(api, node, child_id)
         VmService.restart_kubelet(api, node, child_id)
         ControlPlaneService.uncordon_node(api, node, dad_id, child_vm.name)
-
-class InstallKubevipCmd(Cmd):
-    def __init__(self) -> None:
-        super().__init__("install-kube-vip")
-    def setup(self):
-        pass
-    def run(self):
-        pass
