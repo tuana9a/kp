@@ -4,25 +4,21 @@ class SafeException(Exception):
     pass
 
 
-class GetNewVmIdFailed(SafeException):
+class NewVmIdException(SafeException):
+    def __init__(self) -> None:
+        super().__init__(self.__class__.__name__)
 
-    def __init__(self, id_range=[], exist_ids=[]) -> None:
-        super().__init__("Can not get new vm id")
 
-
-class GetNewVmIpFailed(SafeException):
-
-    def __init__(self, ip_pool=[], exist_ips=[]) -> None:
-        super().__init__("Can not get new vm ip")
+class NewVmIpException(SafeException):
+    def __init__(self) -> None:
+        super().__init__(self.__class__.__name__)
 
 
 class VmNotFoundException(SafeException):
-
     def __init__(self, vm_id: int) -> None:
-        super().__init__(f"vm {vm_id} is not found")
+        super().__init__(self.__class__.__name__ + f": {vm_id}")
 
 
-class CreateJoinCmdFailed(SafeException):
-
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
+class CreateJoinCmdException(SafeException):
+    def __init__(self, stderr: str) -> None:
+        super().__init__(self.__class__.__name__ + f":\n{stderr}")

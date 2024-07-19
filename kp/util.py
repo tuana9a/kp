@@ -12,7 +12,6 @@ from proxmoxer import ProxmoxAPI
 from kp.logger import Logger
 from kp.error import *
 from kp import config
-from kp.config import Cfg
 
 
 log = Logger.from_env()
@@ -53,7 +52,7 @@ def load_config(config_path=os.getenv("KP_CONFIG")):
     if not os.path.exists(config_path):
         raise FileNotFoundError(config_path)
     with open(config_path, "r") as f:
-        return Cfg(**json.loads(f.read()))
+        return config.Cfg(**json.loads(f.read()))
 
 
 class Proxmox:
@@ -77,7 +76,7 @@ class Proxmox:
         return urllib.parse.quote(sshkeys, safe="")
 
     @staticmethod
-    def create_api_client(cfg: Cfg):
+    def create_api_client(cfg: config.Cfg):
         # TODO: verify with ca cert
         if cfg.proxmox_token_name:
             log.info("auth using proxmox_token")
@@ -93,6 +92,13 @@ class Proxmox:
             password=cfg.proxmox_password,
             verify_ssl=False,
         )
+
+
+class Kubevip():
+    @staticmethod
+    def render_pod_manifest(inf: str, vip: str):
+        manifest = config.KUBEVIP_MANIFEST_TEMPLATE.replace("$INTERFACE", inf).replace("$VIP", vip)
+        return manifest
 
 
 class Cmd:

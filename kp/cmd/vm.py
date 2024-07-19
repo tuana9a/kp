@@ -39,9 +39,7 @@ class RebootVmCmd(Cmd):
 
     def run(self):
         urllib3.disable_warnings()
-        args = self.parsed_args
-
-        ids = args.ids
+        ids = self.parsed_args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
         node = cfg.proxmox_node
@@ -60,8 +58,7 @@ class RemoveVmCmd(Cmd):
 
     def run(self):
         urllib3.disable_warnings()
-        args = self.parsed_args
-        ids = args.ids
+        ids = self.parsed_args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
         node = cfg.proxmox_node
@@ -82,9 +79,7 @@ class StartVmCmd(Cmd):
 
     def run(self):
         urllib3.disable_warnings()
-        args = self.parsed_args
-
-        ids = args.ids
+        ids = self.parsed_args.ids
         util.log.info("vm_ids", ids)
         cfg = util.load_config()
         node = cfg.proxmox_node
@@ -136,10 +131,9 @@ class CopyFileCmd(Cmd):
         self.parser.add_argument("path", type=str)
 
     def run(self):
-        args = self.parsed_args
-        localpath = args.localpath
-        path = args.path
-        vm_id = args.vmid
+        localpath = self.parsed_args.localpath
+        path = self.parsed_args.path
+        vm_id = self.parsed_args.vmid
         urllib3.disable_warnings()
         util.log.info("vm_id", vm_id)
         cfg = util.load_config()

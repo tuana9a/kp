@@ -120,9 +120,8 @@ class ScpConfigCmd(Cmd):
         self.parser.add_argument("path", type=str)
 
     def run(self):
-        args = self.parsed_args
-        path = args.path
-        vm_id = args.vmid
+        path = self.parsed_args.path
+        vm_id = self.parsed_args.vmid
         urllib3.disable_warnings()
         cfg = util.load_config()
         node = cfg.proxmox_node

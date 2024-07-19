@@ -65,7 +65,7 @@ class PveApi:
         new_id = util.find_missing_number(id_range[0], id_range[1], exist_ids)
         if not new_id:
             util.log.error("Can't find new vmid")
-            raise GetNewVmIdFailed()
+            raise NewVmIdException()
         return new_id
 
     @staticmethod
@@ -100,7 +100,7 @@ class PveApi:
         new_ip = util.find_missing(ip_pool, exist_ips)
         if not new_ip:
             util.log.error("Can't find new ip")
-            raise GetNewVmIpFailed()
+            raise NewVmIpException()
         return new_ip
 
     @staticmethod
@@ -346,3 +346,12 @@ class PveApi:
         util.log.debug(node, vm_id, "read_file", filepath)
         r = api.nodes(node).qemu(vm_id).agent("file-read").get(file=filepath)
         return r
+
+    @staticmethod
+    def copy_file_vm2vm(api: ProxmoxAPI,
+                        node: str,
+                        src_id,
+                        dest_id,
+                        filepath: str):
+        r = PveApi.read_file(api, node, src_id, filepath)
+        r = PveApi.write_file(api, node, dest_id, filepath, r["content"])

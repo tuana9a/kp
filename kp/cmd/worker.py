@@ -165,7 +165,6 @@ class UpgradeCmd(Cmd):
 
     def run(self):
         urllib3.disable_warnings()
-        args = self.parsed_args
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
