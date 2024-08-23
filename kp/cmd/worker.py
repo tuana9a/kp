@@ -37,7 +37,7 @@ class CreateWorkerCmd(Cmd):
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=4)
         self.parser.add_argument("--vm-mem", type=int, default=8192)
-        self.parser.add_argument("--vm-disk", type=str, default="32G")
+        self.parser.add_argument("--vm-disk", type=str, default="+32G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")

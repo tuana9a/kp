@@ -171,7 +171,7 @@ class UpdateConfigCmd(Cmd):
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=2048)
-        self.parser.add_argument("--vm-disk", type=str, default="20G")
+        self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")

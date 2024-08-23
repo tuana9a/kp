@@ -51,7 +51,7 @@ class CreateChildCmd(Cmd):
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=4096)
-        self.parser.add_argument("--vm-disk", type=str, default="20G")
+        self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
@@ -136,7 +136,7 @@ class CreateDadCmd(Cmd):
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=4096)
-        self.parser.add_argument("--vm-disk", type=str, default="20G")
+        self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
@@ -288,7 +288,7 @@ class CreateStandaloneCmd(Cmd):
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=4096)
-        self.parser.add_argument("--vm-disk", type=str, default="20G")
+        self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
@@ -502,11 +502,11 @@ class HotBackupCmd(Cmd):
         backup_dir = self.parsed_args.backup_dir
         util.log.info("vmid", vmid, "backup_dir", backup_dir)
         cmd = f"mkdir -p {backup_dir}".split()
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
         cmd = f"cp -r /etc/kubernetes/pki {backup_dir}"
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
         cmd = f"cp -r /var/lib/etcd/ {backup_dir}"
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
 
 
 class BackupCertsCmd(Cmd):
@@ -525,9 +525,9 @@ class BackupCertsCmd(Cmd):
         backup_dir = self.parsed_args.backup_dir
         util.log.info("vmid", vmid, "backup_dir", backup_dir)
         cmd = f"mkdir -p {backup_dir}".split()
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
         cmd = f"cp -r /etc/kubernetes/pki {backup_dir}"
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
 
 
 class RestoreDadCmd(Cmd):
@@ -565,7 +565,7 @@ class RestoreDadCmd(Cmd):
 
         VmService.kubeadm_reset(api, node, dad_id)
         cmd = f"cp -r {backup_dir}/pki/ /etc/kubernetes/"
-        PveApi.exec(api, node, dad_id, cmd, interval_check=3)
+        PveApi.exec(api, node, dad_id, cmd)
 
         cmd = f"""/usr/local/bin/etcdutl snapshot restore {backup_dir}/etcd/member/snap/db \
             --name {dad_vm.name} \
@@ -576,7 +576,7 @@ class RestoreDadCmd(Cmd):
             --bump-revision 1000000000 --mark-compacted \
             --data-dir /var/lib/etcd
         """.split()
-        PveApi.exec(api, node, dad_id, cmd, interval_check=3)
+        PveApi.exec(api, node, dad_id, cmd)
 
         ControlPlaneService.init(api, node, dad_id, lb_ip,
                                  extra_opts=["--ignore-preflight-errors=DirAvailable--var-lib-etcd"],
