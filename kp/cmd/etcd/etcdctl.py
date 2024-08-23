@@ -43,7 +43,7 @@ class MemberListCmd(Cmd):
         ]
         cmd = "/usr/local/bin/etcdctl member list -w table".split()
         cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
 
 
 class MemberRemoveCmd(Cmd):
@@ -69,7 +69,7 @@ class MemberRemoveCmd(Cmd):
         ]
         cmd = f"/usr/local/bin/etcdctl member remove {member_id}".split()
         cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
 
 
 class EndpointCmd(Cmd):
@@ -100,7 +100,7 @@ class EndpointStatusCmd(Cmd):
         ]
         cmd = "/usr/local/bin/etcdctl endpoint status --cluster -w table".split()
         cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
 
 
 class SnapshotCmd(Cmd):
@@ -132,7 +132,7 @@ class SnapshotSaveCmd(Cmd):
             "--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
         ]
         cmd = f"mkdir -p {backup_dir}".split()
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)
         cmd = f"/usr/local/bin/etcdctl snapshot save {backup_dir}/snapshot.db".split()
         cmd.extend(opts)
-        PveApi.exec(api, node, vmid, cmd, interval_check=3)
+        PveApi.exec(api, node, vmid, cmd)

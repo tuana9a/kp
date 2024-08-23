@@ -170,8 +170,8 @@ class PveApi:
              node: str,
              vm_id: str,
              cmd: List[str],
-             timeout=config.TIMEOUT_IN_SECONDS,
-             interval_check=5):
+             timeout=config.TIMEOUT_IN_SECONDS):
+        interval_check = 3
         duration = 0
         r = api.nodes(node).qemu(vm_id).agent.exec.post(command=cmd)
         pid = r["pid"]
@@ -180,15 +180,14 @@ class PveApi:
         stdout: str = None
         stderr: str = None
         exitcode: int = None
+
         while True:
-            util.log.info(node, vm_id, "exec", pid, "WAIT", duration)
-            time.sleep(interval_check)
-            duration += interval_check
             if duration > timeout:
                 util.log.error(node, vm_id, "exec", pid, "TIMEOUT")
                 raise TimeoutError()
             try:
                 status = api.nodes(node).qemu(vm_id).agent("exec-status").get(pid=pid)
+                util.log.info(node, vm_id, "exec", pid, "duration", duration, status)
                 exited = status["exited"]
                 stdout = status.get("out-data", None)
                 stderr = status.get("err-data", None)
@@ -196,7 +195,11 @@ class PveApi:
                 if exited:
                     break
             except Exception as err:
-                util.log.info(f"ERROR {err}")
+                util.log.error(node, vm_id, "exec", pid, "duration", duration, f"ERROR {err}")
+                break
+            time.sleep(interval_check)
+            duration += interval_check
+
         util.log.info(node, vm_id, "exec", pid, "duration", duration, "exitcode", exitcode)
         out = ""
         if stdout:
@@ -211,12 +214,10 @@ class PveApi:
                             node: str,
                             vm_id: str,
                             timeout=config.TIMEOUT_IN_SECONDS,
-                            interval_check=15):
+                            interval_check=3):
 
         duration = 0
         while True:
-            time.sleep(interval_check)
-            duration += interval_check
             if duration > timeout:
                 util.log.error(node, vm_id, PveApi.wait_for_guestagent.__name__, "TIMEOUT")
                 raise TimeoutError()
@@ -225,31 +226,27 @@ class PveApi:
                 break
             except Exception as err:
                 util.log.info(node, vm_id, PveApi.wait_for_guestagent.__name__, "WAIT", duration)
+                time.sleep(interval_check)
+                duration += interval_check
         util.log.info(node, vm_id, PveApi.wait_for_guestagent.__name__, "DONE")
 
     @staticmethod
     def wait_for_cloudinit(api: ProxmoxAPI,
                            node: str,
                            vm_id: str,
-                           timeout=config.TIMEOUT_IN_SECONDS,
-                           interval_check=15):
-        return PveApi.exec(api, node, vm_id, "cloud-init status --wait",
-                           timeout=timeout,
-                           interval_check=interval_check)
+                           timeout=config.TIMEOUT_IN_SECONDS):
+        return PveApi.exec(api, node, vm_id, "cloud-init status --wait", timeout=timeout)
 
     @staticmethod
     def wait_for_shutdown(api: ProxmoxAPI,
                           node: str,
                           vm_id: str,
                           timeout=config.TIMEOUT_IN_SECONDS,
-                          interval_check=15):
+                          interval_check=3):
 
         status = None
         duration = 0
         while True:
-            util.log.info(node, vm_id, PveApi.wait_for_shutdown.__name__, "WAIT", duration)
-            time.sleep(interval_check)
-            duration += interval_check
             if duration > timeout:
                 util.log.error(node, vm_id, PveApi.wait_for_shutdown.__name__, "TIMEOUT")
                 raise TimeoutError()
@@ -257,6 +254,9 @@ class PveApi:
             status = r["status"]
             if status == "stopped":
                 break
+            util.log.info(node, vm_id, PveApi.wait_for_shutdown.__name__, "WAIT", duration)
+            time.sleep(interval_check)
+            duration += interval_check
 
     @staticmethod
     def update_config(api: ProxmoxAPI,

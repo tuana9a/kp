@@ -23,7 +23,7 @@ class VmService:
                                  vm_id: str,
                                  content=config.CONTAINERD_CONFIG):
         cmd = "mkdir -p /etc/containerd".split()
-        PveApi.exec(api, node, vm_id, cmd, interval_check=2)
+        PveApi.exec(api, node, vm_id, cmd)
         PveApi.write_file(api, node, vm_id, "/etc/containerd/config.toml", content)
 
     @staticmethod

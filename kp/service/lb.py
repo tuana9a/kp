@@ -38,7 +38,7 @@ class LbService:
                        node: str,
                        vm_id: str):
         cmd = ["systemctl", "reload", "haproxy"]
-        PveApi.exec(api, node, vm_id, cmd, interval_check=3)
+        PveApi.exec(api, node, vm_id, cmd)
 
     @staticmethod
     def render_haproxy_config(backends: list):

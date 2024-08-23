@@ -39,10 +39,8 @@ class ControlPlaneService:
                             cmd=["kubeadm", "token", "create",
                                  "--print-join-command"],
                             is_control_plane=False,
-                            timeout=config.TIMEOUT_IN_SECONDS,
-                            interval_check=3):
-        exitcode, stdout, stderr = PveApi.exec(api, node, vm_id, cmd,
-                                               timeout=timeout, interval_check=interval_check)
+                            timeout=config.TIMEOUT_IN_SECONDS):
+        exitcode, stdout, stderr = PveApi.exec(api, node, vm_id, cmd, timeout=timeout)
         if exitcode != 0:
             raise CreateJoinCmdException(stderr)
         join_cmd = stdout.split()
@@ -62,9 +60,10 @@ class ControlPlaneService:
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "drain", node_name]
         cmd.extend(opts)
         # 30 mins should be enough
-        return PveApi.exec(api, node, vm_id, cmd,
-                           interval_check=5,
-                           timeout=30 * 60)
+        exitcode, stdout, stderr = PveApi.exec(api, node, vm_id, cmd, timeout=30 * 60)
+        if exitcode != 0:
+            raise Exception(f"{node} {vm_id} drain {node_name} failed")
+        return exitcode, stdout, stderr
 
     @staticmethod
     def uncordon_node(api: ProxmoxAPI,
@@ -75,9 +74,7 @@ class ControlPlaneService:
                       opts=[]):
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "uncordon", node_name]
         cmd.extend(opts)
-        return PveApi.exec(api, node, vm_id, cmd,
-                           interval_check=5,
-                           timeout=5 * 60)
+        return PveApi.exec(api, node, vm_id, cmd, timeout=5 * 60)
 
     @staticmethod
     def delete_node(api: ProxmoxAPI,
@@ -86,7 +83,7 @@ class ControlPlaneService:
                     node_name,
                     kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_PATH):
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "delete", "node", node_name]
-        return PveApi.exec(api, node, vm_id, cmd, interval_check=5)
+        return PveApi.exec(api, node, vm_id, cmd)
 
     @staticmethod
     def ensure_cert_dirs(api: ProxmoxAPI,
@@ -98,7 +95,7 @@ class ControlPlaneService:
                              ]):
         for d in cert_dirs:
             cmd = ["mkdir", "-p", d]
-            PveApi.exec(api, node, vm_id, cmd, interval_check=2)
+            PveApi.exec(api, node, vm_id, cmd)
 
     @staticmethod
     def cat_kubeconfig(api: ProxmoxAPI,
@@ -106,7 +103,7 @@ class ControlPlaneService:
                        vm_id: str,
                        filepath=config.KUBERNETES_ADMIN_CONF_PATH):
         cmd = ["cat", filepath]
-        return PveApi.exec(api, node, vm_id, cmd, interval_check=2)
+        return PveApi.exec(api, node, vm_id, cmd)
 
     @staticmethod
     def apply_file(api: ProxmoxAPI,
