@@ -187,7 +187,7 @@ class PveApi:
                 raise TimeoutError()
             try:
                 status = api.nodes(node).qemu(vm_id).agent("exec-status").get(pid=pid)
-                util.log.info(node, vm_id, "exec", pid, "duration", duration, status)
+                util.log.debug(node, vm_id, "exec", pid, "duration", duration, status)
                 exited = status["exited"]
                 stdout = status.get("out-data", None)
                 stderr = status.get("err-data", None)

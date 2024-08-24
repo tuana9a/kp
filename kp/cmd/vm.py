@@ -26,6 +26,7 @@ class VmCmd(Cmd):
                 RunUserDataCmd(),
                 UpdateContainerdConfigCmd(),
                 RestartKubeletCmd(),
+                KubeadmResetCmd(),
             ])
 
 
@@ -266,3 +267,18 @@ class RestartKubeletCmd(Cmd):
         api = util.Proxmox.create_api_client(cfg)
         vmid = self.parsed_args.vmid
         VmService.restart_kubelet(api, node, vmid)
+
+
+class KubeadmResetCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("kubeadm-reset")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        VmService.kubeadm_reset(api, node, vmid)

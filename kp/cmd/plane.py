@@ -34,6 +34,7 @@ class ControlPlaneCmd(Cmd):
                              UpgradeFirstChildCmd(),
                              UpgradeSecondChildCmd(),
                              V2Cmd(),
+                             CreateJoinCmd(),
                          ],
                          aliases=["plane"])
 
@@ -51,7 +52,7 @@ class CreateChildCmd(Cmd):
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=4096)
-        self.parser.add_argument("--vm-disk", type=str, default="+20G")
+        self.parser.add_argument("--vm-disk", type=str, default="+10G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
@@ -136,7 +137,7 @@ class CreateDadCmd(Cmd):
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=4096)
-        self.parser.add_argument("--vm-disk", type=str, default="+20G")
+        self.parser.add_argument("--vm-disk", type=str, default="+10G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
@@ -675,3 +676,19 @@ class UpgradeSecondChildCmd(Cmd):
         VmService.systemctl_daemon_reload(api, node, child_id)
         VmService.restart_kubelet(api, node, child_id)
         ControlPlaneService.uncordon_node(api, node, dad_id, child_vm.name)
+
+
+class CreateJoinCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("create-join-command")
+
+    def setup(self):
+        self.parser.add_argument("vmid", type=int)
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        vmid = self.parsed_args.vmid
+        util.log.info("vmid", vmid, "create-join-token")
+        ControlPlaneService.create_join_command(api, node, vmid)
