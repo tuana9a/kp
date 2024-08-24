@@ -66,11 +66,11 @@ spec:
     - name: vip_leasename
       value: plndr-cp-lock
     - name: vip_leaseduration
-      value: "60"
-    - name: vip_renewdeadline
       value: "15"
+    - name: vip_renewdeadline
+      value: "10"
     - name: vip_retryperiod
-      value: "5"
+      value: "2"
     - name: address
       value: $VIP
     - name: prometheus_server
