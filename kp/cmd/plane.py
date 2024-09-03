@@ -4,7 +4,7 @@ import ipaddress
 
 from kp import util
 from kp import config
-from kp.util import Cmd
+from kp.model import Cmd
 from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
 from kp.client.pve import PveApi

@@ -2,7 +2,7 @@ import urllib3
 import ipaddress
 
 from kp.service.vm import VmService
-from kp.util import Cmd
+from kp.model import Cmd
 from kp.client.pve import PveApi
 from kp.service.lb import LbService
 from kp import util

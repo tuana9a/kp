@@ -3,7 +3,7 @@ import urllib3
 import ipaddress
 
 from kp import util
-from kp.util import Cmd
+from kp.model import Cmd
 from kp import config
 from kp.client.pve import PveApi
 from kp.service.plane import ControlPlaneService

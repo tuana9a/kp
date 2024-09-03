@@ -2,7 +2,7 @@ import urllib3
 
 from kp import util
 from kp.client.pve import PveApi
-from kp.util import Cmd
+from kp.model import Cmd
 
 
 class EtcdctlCmd(Cmd):

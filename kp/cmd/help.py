@@ -1,4 +1,4 @@
-from kp.util import Cmd
+from kp.model import Cmd
 
 
 class TreeCmd(Cmd):

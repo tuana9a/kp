@@ -65,26 +65,7 @@ qm template $vmid
 
 See [./app/payload.py#Cfg](./app/payload.py#Cfg)
 
-# Code structure
-
-```mermaid
-graph TD;
-  cmd-->service;
-  service-->api;
-  service-->util;
-  cmd-->util;
-  util-->config;
-  util-->logger;
-  payload-->config;
-  util-->payload;
-  service-->payload;
-  service-->config;
-  cmd-->config;
-  service-->error;
-  error;
-```
-
-# [WIP] How to use
+# How to use
 
 ```bash
 python3 -m venv .venv
@@ -104,6 +85,12 @@ sudo ln -sf $PWD/dist/kp /usr/local/bin/kp
 
 ```bash
 sudo chmod +x /usr/local/bin/kp
+```
+
+to see tree of command
+
+```bash
+kp tree
 ```
 
 # Decision / Choise / Explain

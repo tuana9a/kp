@@ -1,6 +1,6 @@
 import sys
 
-from kp.util import Cmd
+from kp.model import Cmd
 from kp.cmd.plane import ControlPlaneCmd
 from kp.cmd.lb import LbCmd
 from kp.cmd.help import TreeCmd
