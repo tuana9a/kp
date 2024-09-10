@@ -166,6 +166,7 @@ class Cfg:
             self,
             proxmox_node: str,
             proxmox_host: str,
+            proxmox_port=8006,
             proxmox_verify_ssl=False,
             proxmox_user: str = None,
             proxmox_password: str = None,
@@ -179,6 +180,7 @@ class Cfg:
             **kwargs) -> None:
         self.proxmox_node = proxmox_node
         self.proxmox_host = proxmox_host
+        self.proxmox_port = proxmox_port
         self.proxmox_verify_ssl = proxmox_verify_ssl
         self.proxmox_user = proxmox_user
         self.proxmox_password = proxmox_password

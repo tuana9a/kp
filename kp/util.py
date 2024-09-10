@@ -77,6 +77,7 @@ class Proxmox:
         if cfg.proxmox_token_name:
             log.info("auth using proxmox_token")
             return ProxmoxAPI(cfg.proxmox_host,
+                              port=cfg.proxmox_port,
                               user=cfg.proxmox_user,
                               token_name=cfg.proxmox_token_name,
                               token_value=cfg.proxmox_token_value,
