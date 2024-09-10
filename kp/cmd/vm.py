@@ -16,6 +16,7 @@ class VmCmd(Cmd):
             "vm",
             childs=[
                 RebootVmCmd(),
+                ShutdownVmCmd(),
                 RemoveVmCmd(),
                 StartVmCmd(),
                 CopyFileCmd(),
@@ -47,6 +48,25 @@ class RebootVmCmd(Cmd):
         api = util.Proxmox.create_api_client(cfg)
         for vmid in ids:
             PveApi.reboot(api, node, vmid)
+
+
+class ShutdownVmCmd(Cmd):
+
+    def __init__(self) -> None:
+        super().__init__("shutdown")
+
+    def setup(self):
+        self.parser.add_argument("ids", nargs="+")
+
+    def run(self):
+        urllib3.disable_warnings()
+        ids = self.parsed_args.ids
+        util.log.info("vm_ids", ids)
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        for vmid in ids:
+            PveApi.shutdown(api, node, vmid)
 
 
 class RemoveVmCmd(Cmd):
