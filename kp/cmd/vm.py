@@ -93,7 +93,7 @@ class RemoveVmCmd(Cmd):
 class StartVmCmd(Cmd):
 
     def __init__(self) -> None:
-        super().__init__("start", aliases=["run", "up"])
+        super().__init__("start", aliases=["startup"])
 
     def setup(self):
         self.parser.add_argument("ids", nargs="+")
@@ -144,7 +144,7 @@ class WaitForCloudInitCmd(Cmd):
 class CopyFileCmd(Cmd):
 
     def __init__(self) -> None:
-        super().__init__("copy-file", aliases=["cp"])
+        super().__init__("copy-file")
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
@@ -167,7 +167,7 @@ class CopyFileCmd(Cmd):
 
 class CloneVmCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("clone", aliases=["cl"])
+        super().__init__("clone")
 
     def setup(self):
         self.parser.add_argument("srcid", type=int)

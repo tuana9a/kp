@@ -6,6 +6,7 @@ from kp.cmd.lb import LbCmd
 from kp.cmd.help import TreeCmd
 from kp.cmd.worker import WorkerCmd
 from kp.cmd.vm import VmCmd
+from kp.cmd.recovery import HotRecoveryCmd
 
 
 class MainCmd(Cmd):
@@ -17,6 +18,7 @@ class MainCmd(Cmd):
                              LbCmd(),
                              WorkerCmd(),
                              VmCmd(),
+                             HotRecoveryCmd(),
                              TreeCmd(parent=self)
                          ])
 

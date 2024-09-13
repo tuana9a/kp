@@ -5,9 +5,9 @@ from kp.client.pve import PveApi
 from kp.model import Cmd
 
 
-class EtcdctlCmd(Cmd):
+class EtcdCmd(Cmd):
     def __init__(self):
-        super().__init__("etcdctl", childs=[
+        super().__init__("etcd", childs=[
             MemberCmd(),
             EndpointCmd(),
             SnapshotCmd(),
