@@ -93,6 +93,74 @@ to see tree of command
 kp tree
 ```
 
+# Life saving tips
+
+This is my experience to fix it, not a must to do but if you're running out of idea, try it
+
+## Randomly and continuously etcdserver switch leader, kubectl randomly failed also, so frustrating
+
+REASON: Power outtage, the etcd cluster was shutdown properly
+
+Let's say we have 3 control planes 122, 123, 124
+
+```bash
+kp plane etcdctl member rm [member_id]
+```
+
+```bash
+kp vm kubeadm-reset [vmid]
+```
+
+## Recovering your cluster when no hope left
+
+REASON: lost 2/3 control planes, quorum lost, ...
+
+```bash
+#!/bin/bash
+
+sudo -i
+
+ETCDCTL_CACERT=/etc/kubernetes/pki/etcd/ca.crt
+ETCDCTL_CERT=/etc/kubernetes/pki/apiserver-etcd-client.crt
+ETCDCTL_KEY=/etc/kubernetes/pki/apiserver-etcd-client.key
+ETCDCTL_OPTS="--cacert=$ETCDCTL_CACERT --cert=$ETCDCTL_CERT --key=$ETCDCTL_KEY"
+
+# check status
+ETCDCTL_API=3 etcdctl member list -w table $ETCDCTL_OPTS
+ETCDCTL_API=3 etcdctl endpoint status --cluster -w table $ETCDCTL_OPTS
+
+# backup certs
+cp -r /etc/kubernetes/pki /root/
+
+# backup etcd (data loss is expected)
+cp -r /var/lib/etcd/ /root/
+
+# cleanup things
+kubeadm reset -f
+
+# restore the certs
+cp -r /root/pki/ /etc/kubernetes/
+
+# restore the etcd data, drop old membership data and re init again with single etcd node
+# NOTE: Pod will be in Pending and kube-apiserver yelling about authenticate request if not specify "--bump-revision 1000000000 --mark-compacted"
+etcdutl snapshot restore /root/etcd/member/snap/db \
+  --name i-123 \
+  --initial-cluster i-123=https://192.168.56.23:2380 \
+  --initial-cluster-token test \
+  --initial-advertise-peer-urls https://192.168.56.23:2380 \
+  --skip-hash-check=true \
+  --bump-revision 1000000000 --mark-compacted \
+  --data-dir /var/lib/etcd
+
+# init the cluster again and ignore existing data in /var/lib/etcd 
+# AND: you're good
+kubeadm init \
+  --control-plane-endpoint='192.168.56.21' \
+  --pod-network-cidr='10.244.0.0/16' \
+  --service-cidr='10.233.0.0/16' \
+  --ignore-preflight-errors=DirAvailable--var-lib-etcd
+```
+
 # Decision / Choise / Explain
 
 ## Immutable infrastructure
