@@ -4,7 +4,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "autopep8",
+            "label": "reformat",
             "type": "shell",
             "command": "cd ${workspaceFolder} && source .venv/bin/activate && find ./kp ./tests ./*.py -name '*.py' -exec autopep8 -v --in-place --ignore=E501 --aggressive --aggressive '{}' \\;",
             "problemMatcher": [],
@@ -12,7 +12,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "cd ${workspaceFolder} && source .venv/bin/activate && pyinstaller --name kp --onefile --hidden-import proxmoxer.backends --hidden-import proxmoxer.backends.https main.py",
+            "command": "cd ${workspaceFolder} && source .venv/bin/activate && find ./kp ./tests ./*.py -name '*.py' -exec autopep8 -v --in-place --ignore=E501 --aggressive --aggressive '{}' \\; && pyinstaller --name kp --onefile --hidden-import proxmoxer.backends --hidden-import proxmoxer.backends.https main.py",
             "problemMatcher": [],
         }
     ]
