@@ -9,22 +9,19 @@ from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
 from kp.client.pve import PveApi
 
-from kp.cmd.v2.planes.dad import DadCmd
-from kp.cmd.v2.planes.child import ChildCmd
 
-
-class V2Cmd(Cmd):
+class KubevipCmd(Cmd):
     def __init__(self):
-        super().__init__("v2", childs=[
+        super().__init__("kube-vip", childs=[
             InstallKubevipCmd(),
-            ChildCmd(),
-            DadCmd(),
-        ])
+            UninstallKubevipCmd(),
+        ],
+            aliases=["vip"])
 
 
 class InstallKubevipCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("install-kube-vip")
+        super().__init__("install")
 
     def setup(self):
         self.parser.add_argument("plane_ids", nargs="+")
@@ -41,3 +38,19 @@ class InstallKubevipCmd(Cmd):
         manifest = util.Kubevip.render_pod_manifest(inf=inf, vip=vip)
         for vmid in plane_ids:
             ControlPlaneService.install_static_pod(api, node, vmid, config.KUBEVIP_MANIFEST_FILENAME, manifest)
+
+
+class UninstallKubevipCmd(Cmd):
+    def __init__(self) -> None:
+        super().__init__("uninstall")
+
+    def setup(self):
+        self.parser.add_argument("plane_ids", nargs="+")
+
+    def run(self):
+        cfg = util.load_config()
+        node = cfg.proxmox_node
+        api = util.Proxmox.create_api_client(cfg)
+        plane_ids = self.parsed_args.plane_ids
+        for vmid in plane_ids:
+            ControlPlaneService.uninstall_static_pod(api, node, vmid, config.KUBEVIP_MANIFEST_FILENAME)

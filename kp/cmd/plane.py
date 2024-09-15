@@ -10,7 +10,7 @@ from kp.service.vm import VmService
 from kp.client.pve import PveApi
 
 from kp.cmd.etcd import EtcdCmd
-from kp.cmd.v2.plane import V2Cmd
+from kp.cmd.vip import KubevipCmd
 from kp.cmd.kubeconfig import KubeconfigCmd
 from kp.cmd.planes.standalone import StandaloneCmd
 from kp.cmd.planes.dad import DadCmd
@@ -29,7 +29,7 @@ class ControlPlaneCmd(Cmd):
                              EtcdCmd(),
                              DadCmd(),
                              ChildCmd(),
-                             V2Cmd(),
+                             KubevipCmd(),
                              CreateJoinCmd(),
                          ],
                          aliases=["plane"])

@@ -66,8 +66,7 @@ class CreateWorkerCmd(Cmd):
         vm_ip = self.parsed_args.vm_ip
         vm_start_on_boot = self.parsed_args.vm_start_on_boot
         r = PveApi.describe_network(api, node, vm_network)
-        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
-            or r["address"]
+        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
 

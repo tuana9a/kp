@@ -29,13 +29,14 @@ class CreateChildCmd(Cmd):
     def setup(self):
         self.parser.add_argument("--dad-id", type=int, required=True)
         self.parser.add_argument("--child-id", type=int, required=True)
-
         self.parser.add_argument("--template-id", type=int, required=True)
+        self.parser.add_argument("--vip", action='store_const', const=True, default=False, help='use kube-vip')
+
         self.parser.add_argument("--vm-net", type=str, required=True)
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=4096)
-        self.parser.add_argument("--vm-disk", type=str, default="+10G")
+        self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
@@ -52,6 +53,8 @@ class CreateChildCmd(Cmd):
         dad_id = self.parsed_args.dad_id
         child_id = self.parsed_args.child_id
         template_id = self.parsed_args.template_id
+        is_using_vip = self.parsed_args.vip
+
         vm_name_prefix = self.parsed_args.vm_name_prefix
         new_vm_name = vm_name_prefix + str(child_id)
         vm_cores = self.parsed_args.vm_cores
@@ -63,8 +66,7 @@ class CreateChildCmd(Cmd):
         vm_ip = self.parsed_args.vm_ip
         vm_start_on_boot = self.parsed_args.vm_start_on_boot
         r = PveApi.describe_network(api, node, vm_network)
-        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
-            or r["address"]
+        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
 
@@ -105,6 +107,11 @@ class CreateChildCmd(Cmd):
                                                            dad_id,
                                                            is_control_plane=True)
         PveApi.exec(api, node, child_id, join_cmd)
+
+        if is_using_vip:
+            # kube-vip.yaml
+            kubevip_manifest_path = os.path.join(config.KUBERNETES_STATIC_POD_DIR, config.KUBEVIP_MANIFEST_FILENAME)
+            PveApi.copy_file_vm2vm(api, node, dad_id, child_id, kubevip_manifest_path)
 
 
 class DeleteChildCmd(Cmd):

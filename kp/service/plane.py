@@ -135,3 +135,11 @@ class ControlPlaneService:
                            content: str,
                            static_pod_dir=config.KUBERNETES_STATIC_POD_DIR):
         PveApi.write_file(api, node, vmid, os.path.join(static_pod_dir, filename), content)
+
+    @staticmethod
+    def uninstall_static_pod(api: ProxmoxAPI,
+                             node: str,
+                             vmid,
+                             filename: str,
+                             static_pod_dir=config.KUBERNETES_STATIC_POD_DIR):
+        PveApi.exec(api, node, vmid, ["rm", os.path.join(static_pod_dir, filename)])

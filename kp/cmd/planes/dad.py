@@ -22,18 +22,20 @@ class DadCmd(Cmd):
 
 class CreateDadCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("create-dad")
+        super().__init__("create")
 
     def setup(self):
         self.parser.add_argument("--dad-id", type=int, required=True)
-        self.parser.add_argument("--lb-id", type=int, required=True)
+        self.parser.add_argument("--lb-id", type=int, required=False)
+        self.parser.add_argument("--vip", type=str, required=False)
+        self.parser.add_argument("--vip-inf", type=str, default="eth0")
 
         self.parser.add_argument("--template-id", type=int, required=True)
         self.parser.add_argument("--vm-net", type=str, required=True)
         self.parser.add_argument("--vm-ip", type=str, required=True)
         self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=4096)
-        self.parser.add_argument("--vm-disk", type=str, default="+10G")
+        self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
@@ -53,6 +55,12 @@ class CreateDadCmd(Cmd):
         dad_id = self.parsed_args.dad_id
         lb_id = self.parsed_args.lb_id
         template_id = self.parsed_args.template_id
+        vip = self.parsed_args.vip
+        vip_inf = self.parsed_args.vip_inf
+
+        if not lb_id and not vip:
+            raise Exception("unknow type of control plane deployment, must be: --lb-id or --vip")
+
         vm_name_prefix = self.parsed_args.vm_name_prefix
         new_vm_name = vm_name_prefix + str(dad_id)
         vm_cores = self.parsed_args.vm_cores
@@ -64,8 +72,7 @@ class CreateDadCmd(Cmd):
         vm_ip = self.parsed_args.vm_ip
         vm_start_on_boot = self.parsed_args.vm_start_on_boot
         r = PveApi.describe_network(api, node, vm_network)
-        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
-            or r["address"]
+        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
 
@@ -101,14 +108,24 @@ class CreateDadCmd(Cmd):
 
         VmService.update_containerd_config(api, node, dad_id)
         VmService.restart_containerd(api, node, dad_id)
-        lb_ifconfig0 = PveApi.current_config(api, node, lb_id).ifconfig(0)
-        if not lb_ifconfig0:
-            raise Exception("can not detect control_plane_endpoint")
-        lb_ip = util.Proxmox.extract_ip(lb_ifconfig0)
+        plane_endpoint = None
+
+        if lb_id:
+            lb_ifconfig0 = PveApi.current_config(api, node, lb_id).ifconfig(0)
+            if not lb_ifconfig0:
+                raise Exception("can not detect control_plane_endpoint")
+            lb_ip = util.Proxmox.extract_ip(lb_ifconfig0)
+            plane_endpoint = lb_ip
+
+        if vip:
+            kubevip_manifest = util.Kubevip.render_pod_manifest(inf=vip_inf, vip=vip)
+            ControlPlaneService.install_static_pod(api, node, dad_id, config.KUBEVIP_MANIFEST_FILENAME, kubevip_manifest)
+            plane_endpoint = vip
+
         ControlPlaneService.init(api,
                                  node,
                                  dad_id,
-                                 control_plane_endpoint=lb_ip,
+                                 control_plane_endpoint=plane_endpoint,
                                  pod_cidr=pod_cidr,
                                  svc_cidr=svc_cidr)
         return dad_id
@@ -116,7 +133,7 @@ class CreateDadCmd(Cmd):
 
 class InitDadCmd(Cmd):
     def __init__(self) -> None:
-        super().__init__("init-dad")
+        super().__init__("init")
 
     def setup(self):
         self.parser.add_argument("--lb-id", type=int, required=True)

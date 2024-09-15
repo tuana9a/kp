@@ -33,7 +33,7 @@ class CreateLbCmd(Cmd):
         self.parser.add_argument("--template-id", type=int, required=True)
         self.parser.add_argument("--vm-net", type=str, required=True)
         self.parser.add_argument("--vm-ip", type=str, required=True)
-        self.parser.add_argument("--vm-cores", type=int, default=1)
+        self.parser.add_argument("--vm-cores", type=int, default=2)
         self.parser.add_argument("--vm-mem", type=int, default=2048)
         self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
@@ -64,8 +64,7 @@ class CreateLbCmd(Cmd):
         vm_ip = self.parsed_args.vm_ip
         vm_start_on_boot = self.parsed_args.vm_start_on_boot
         r = PveApi.describe_network(api, node, vm_network)
-        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) \
-            or r["address"]
+        network_gw_ip = str(ipaddress.IPv4Interface(r["cidr"]).ip) or r["address"]
 
         vm_userdata = self.parsed_args.vm_userdata
 
@@ -142,7 +141,7 @@ class UpdateBackendsCmd(Cmd):
         super().__init__("update-backends", aliases=["update-config"])
 
     def setup(self):
-        self.parser.add_argument("--lb-id", type=int, required=True)
+        self.parser.add_argument("vmid", type=int)
         self.parser.add_argument("--plane-ids", nargs="+", required=True)
 
     def run(self):
@@ -150,7 +149,7 @@ class UpdateBackendsCmd(Cmd):
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
-        lb_id = self.parsed_args.lb_id
+        lb_id = self.parsed_args.vmid
         plane_ids = self.parsed_args.plane_ids
         backends = []
         for vmid in plane_ids:
