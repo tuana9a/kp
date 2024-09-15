@@ -130,9 +130,11 @@ ETCDCTL_API=3 etcdctl member list -w table $ETCDCTL_OPTS
 ETCDCTL_API=3 etcdctl endpoint status --cluster -w table $ETCDCTL_OPTS
 
 # backup certs
+rm -r /root/pki
 cp -r /etc/kubernetes/pki /root/
 
 # backup etcd (data loss is expected)
+rm -r /root/etcd
 cp -r /var/lib/etcd/ /root/
 
 # cleanup things
@@ -143,13 +145,16 @@ cp -r /root/pki/ /etc/kubernetes/
 
 # restore the etcd data, drop old membership data and re init again with single etcd node
 # NOTE: Pod will be in Pending and kube-apiserver yelling about authenticate request if not specify "--bump-revision 1000000000 --mark-compacted"
-etcdutl snapshot restore /root/etcd/member/snap/db \
+ETCD_SNAPSHOT=/tmp/snapshot.db
+ETCD_SNAPSHOT=/root/etcd/member/snap/db
+BUMP_REVISION=1234567890
+etcdutl snapshot restore $ETCD_SNAPSHOT \
   --name i-123 \
   --initial-cluster i-123=https://192.168.56.23:2380 \
   --initial-cluster-token test \
   --initial-advertise-peer-urls https://192.168.56.23:2380 \
   --skip-hash-check=true \
-  --bump-revision 1000000000 --mark-compacted \
+  --bump-revision ${BUMP_REVISION:-1000000000} --mark-compacted \
   --data-dir /var/lib/etcd
 
 # init the cluster again and ignore existing data in /var/lib/etcd 
