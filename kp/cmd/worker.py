@@ -3,11 +3,13 @@ import urllib3
 import ipaddress
 
 from kp import util
-from kp.model import Cmd
 from kp import config
+from kp import template
+from kp.model import Cmd
 from kp.client.pve import PveApi
 from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
+from kp .  scripts import worker as scripts
 
 
 class WorkerCmd(Cmd):
@@ -42,8 +44,7 @@ class CreateWorkerCmd(Cmd):
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
-
-        self.parser.add_argument("--vm-userdata", type=str, required=True)
+        self.parser.add_argument("--vm-userdata", type=str, required=False)
 
     def run(self):
         urllib3.disable_warnings()
@@ -92,11 +93,17 @@ class CreateWorkerCmd(Cmd):
         PveApi.wait_for_guestagent(api, node, child_id)
         PveApi.wait_for_cloudinit(api, node, child_id)
 
-        userdata_location = "/usr/local/bin/userdata.sh"
-        with open(vm_userdata, "r") as f:
-            PveApi.write_file(api, node, child_id, userdata_location, f.read())
-        PveApi.exec(api, node, child_id, f"chmod +x {userdata_location}")
-        PveApi.exec(api, node, child_id, userdata_location)
+        setup_script_location = "/usr/local/bin/setup.sh"
+        PveApi.write_file(api, node, child_id, setup_script_location, scripts.KUBE_SETUP_WORKER_DEFAULT_SCRIPT)
+        PveApi.exec(api, node, child_id, f"chmod +x {setup_script_location}")
+        PveApi.exec(api, node, child_id, setup_script_location)
+
+        if vm_userdata:
+            userdata_location = "/usr/local/bin/userdata.sh"
+            with open(vm_userdata, "r") as f:
+                PveApi.write_file(api, node, child_id, userdata_location, f.read())
+            PveApi.exec(api, node, child_id, f"chmod +x {userdata_location}")
+            PveApi.exec(api, node, child_id, userdata_location)
 
         VmService.update_containerd_config(api, node, child_id)
         VmService.restart_containerd(api, node, child_id)
@@ -175,7 +182,7 @@ class UpgradeCmd(Cmd):
         child_vm = PveApi.find_vm_by_id(api, node, child_id)
 
         vm_userdata = "/usr/local/bin/upgrade.sh"
-        tmpl = config.UPGRADE_WORKER_SCRIPT
+        tmpl = template.UPGRADE_WORKER_SCRIPT_TEMPLATE
         userdata_content = tmpl.format(kubernetes_version_minor=kubernetes_version_minor,
                                        kubernetes_version_patch=kubernetes_version_patch)
         PveApi.write_file(api, node, child_id, vm_userdata, userdata_content)

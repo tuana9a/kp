@@ -8,6 +8,7 @@ from kp.model import Cmd
 from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
 from kp.client.pve import PveApi
+from kp . scripts import plane as scripts
 
 
 class StandaloneCmd(Cmd):
@@ -38,8 +39,7 @@ class CreateStandaloneCmd(Cmd):
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
-
-        self.parser.add_argument("--vm-userdata", type=str, required=True)
+        self.parser.add_argument("--vm-userdata", type=str, required=False)
 
         self.parser.add_argument("--pod-cidr", type=str, required=True)
         self.parser.add_argument("--svc-cidr", type=str, required=True)
@@ -90,11 +90,17 @@ class CreateStandaloneCmd(Cmd):
         PveApi.wait_for_guestagent(api, node, vmid)
         PveApi.wait_for_cloudinit(api, node, vmid)
 
-        userdata_location = "/usr/local/bin/userdata.sh"
-        with open(vm_userdata, "r") as f:
-            PveApi.write_file(api, node, vmid, userdata_location, f.read())
-        PveApi.exec(api, node, vmid, f"chmod +x {userdata_location}")
-        PveApi.exec(api, node, vmid, userdata_location)
+        setup_script_location = "/usr/local/bin/setup.sh"
+        PveApi.write_file(api, node, vmid, setup_script_location, scripts.KUBE_SETUP_CONTROL_PLANE_DEFAULT_SCRIPT)
+        PveApi.exec(api, node, vmid, f"chmod +x {setup_script_location}")
+        PveApi.exec(api, node, vmid, setup_script_location)
+
+        if vm_userdata:
+            userdata_location = "/usr/local/bin/userdata.sh"
+            with open(vm_userdata, "r") as f:
+                PveApi.write_file(api, node, vmid, userdata_location, f.read())
+            PveApi.exec(api, node, vmid, f"chmod +x {userdata_location}")
+            PveApi.exec(api, node, vmid, userdata_location)
 
         VmService.update_containerd_config(api, node, vmid)
         VmService.restart_containerd(api, node, vmid)

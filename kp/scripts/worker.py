@@ -1,0 +1,194 @@
+KUBE_SETUP_WORKER_127_SCRIPT = """
+#!/bin/bash
+
+# Add Docker's official GPG key:
+apt-get update
+apt-get install apt-transport-https ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add the repository to Apt sources:
+echo "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \"$(. /etc/os-release && echo $VERSION_CODENAME)\" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update
+
+# **NOTE**: cri: dockerd is not supported from 1.24, No need to install `docker-ce` and `docker-ce-cli`
+apt install -y containerd.io
+
+# Setup container runtime https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+cat <<EOF | tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+
+modprobe overlay
+modprobe br_netfilter
+
+# Sysctl params required by setup, params persist across reboots
+cat <<EOF | tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+# Apply sysctl params without reboot
+sysctl --system
+
+# Add the repository for K8S
+kubernetes_version="1.27"
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+
+# Install kubernetes dependencies
+apt-get update
+apt install -y kubelet kubeadm kubectl
+"""
+
+KUBE_SETUP_WORKER_128_SCRIPT = """
+#!/bin/bash
+
+# Add Docker's official GPG key:
+apt-get update
+apt-get install apt-transport-https ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add the repository to Apt sources:
+echo "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \"$(. /etc/os-release && echo $VERSION_CODENAME)\" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update
+
+# **NOTE**: cri: dockerd is not supported from 1.24, No need to install `docker-ce` and `docker-ce-cli`
+apt install -y containerd.io
+
+# Setup container runtime https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+cat <<EOF | tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+
+modprobe overlay
+modprobe br_netfilter
+
+# Sysctl params required by setup, params persist across reboots
+cat <<EOF | tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+# Apply sysctl params without reboot
+sysctl --system
+
+# Add the repository for K8S
+kubernetes_version="1.28"
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+
+# Install kubernetes dependencies
+apt-get update
+apt install -y kubelet kubeadm kubectl
+"""
+
+KUBE_SETUP_WORKER_129_SCRIPT = """
+#!/bin/bash
+
+# Add Docker's official GPG key:
+apt-get update
+apt-get install apt-transport-https ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add the repository to Apt sources:
+echo "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \"$(. /etc/os-release && echo $VERSION_CODENAME)\" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update
+
+# **NOTE**: cri: dockerd is not supported from 1.24, No need to install `docker-ce` and `docker-ce-cli`
+apt install -y containerd.io
+
+# Setup container runtime https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+cat <<EOF | tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+
+modprobe overlay
+modprobe br_netfilter
+
+# Sysctl params required by setup, params persist across reboots
+cat <<EOF | tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+# Apply sysctl params without reboot
+sysctl --system
+
+# Add the repository for K8S
+kubernetes_version="1.29"
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/Release.key | gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+
+# Install kubernetes dependencies
+apt-get update
+apt install -y kubelet='1.29.6-*' kubeadm='1.29.6-*' kubectl='1.29.6-*'
+
+# https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner
+apt install -y nfs-common
+"""
+
+KUBE_SETUP_WORKER_130_SCRIPT = """
+#!/bin/bash
+
+set -e
+
+wget -q https://github.com/containerd/containerd/releases/download/v1.6.33/containerd-1.6.33-linux-amd64.tar.gz -O /opt/containerd-1.6.33-linux-amd64.tar.gz
+tar Cxzvf /usr/local /opt/containerd-1.6.33-linux-amd64.tar.gz
+
+wget -q https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -O /lib/systemd/system/containerd.service
+systemctl daemon-reload
+systemctl enable --now containerd
+
+wget -q https://github.com/opencontainers/runc/releases/download/v1.1.13/runc.amd64 -O /opt/runc.amd64
+install -m 755 /opt/runc.amd64 /usr/local/sbin/runc
+
+wget -q https://github.com/containernetworking/plugins/releases/download/v1.5.1/cni-plugins-linux-amd64-v1.5.1.tgz -O /opt/cni-plugins-linux-amd64-v1.5.1.tgz
+mkdir -p /opt/cni/bin
+tar Cxzvf /opt/cni/bin /opt/cni-plugins-linux-amd64-v1.5.1.tgz
+
+# Setup container runtime https://kubernetes.io/docs/setup/production-environment/container-runtimes/
+cat <<EOF | tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+
+modprobe overlay
+modprobe br_netfilter
+
+# Sysctl params required by setup, params persist across reboots
+cat <<EOF | tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+
+# Apply sysctl params without reboot
+sysctl --system
+
+# Add the repository for K8S
+kubernetes_version="1.30"
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/Release.key | gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
+
+# Install kubernetes dependencies
+apt-get update
+apt install -y kubelet='1.30.2-*' kubeadm='1.30.2-*' kubectl='1.30.2-*'
+"""
+
+KUBE_SETUP_WORKER_DEFAULT_SCRIPT = KUBE_SETUP_WORKER_130_SCRIPT

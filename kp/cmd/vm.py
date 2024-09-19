@@ -260,17 +260,14 @@ class UpdateContainerdConfigCmd(Cmd):
 
     def setup(self):
         self.parser.add_argument("vmid", type=int)
-        self.parser.add_argument("filepath", type=str)
 
     def run(self):
         cfg = util.load_config()
         node = cfg.proxmox_node
         api = util.Proxmox.create_api_client(cfg)
         vmid = self.parsed_args.vmid
-        filepath = self.parsed_args.filepath
-        with open(filepath, "r") as f:
-            VmService.update_containerd_config(api, node, vmid, f.read())
-            VmService.restart_containerd(api, node, vmid)
+        VmService.update_containerd_config(api, node, vmid, config.CONTAINERD_CONFIG)
+        VmService.restart_containerd(api, node, vmid)
 
 
 class RestartKubeletCmd(Cmd):

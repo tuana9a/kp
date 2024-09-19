@@ -8,6 +8,7 @@ from proxmoxer import ProxmoxAPI
 from kp.logger import Logger
 from kp.error import *
 from kp import config
+from kp import template
 
 
 log = Logger.from_env()
@@ -94,5 +95,5 @@ class Proxmox:
 class Kubevip():
     @staticmethod
     def render_pod_manifest(inf: str, vip: str):
-        manifest = config.KUBEVIP_MANIFEST_TEMPLATE.replace("$INTERFACE", inf).replace("$VIP", vip)
+        manifest = template.KUBEVIP_MANIFEST_TEMPLATE.replace("$INTERFACE", inf).replace("$VIP", vip)
         return manifest

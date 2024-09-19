@@ -7,6 +7,7 @@ from kp.client.pve import PveApi
 from kp.service.lb import LbService
 from kp import util
 from kp import config
+from kp.scripts import lb as scripts
 
 
 class LbCmd(Cmd):
@@ -40,8 +41,7 @@ class CreateLbCmd(Cmd):
         self.parser.add_argument("--vm-username", type=str, default="u")
         self.parser.add_argument("--vm-password", type=str, default="1")
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
-
-        self.parser.add_argument("--vm-userdata", type=str, required=True)
+        self.parser.add_argument("--vm-userdata", type=str, required=False)
 
     def run(self):
         urllib3.disable_warnings()
@@ -90,11 +90,17 @@ class CreateLbCmd(Cmd):
         PveApi.wait_for_guestagent(api, node, lb_id)
         PveApi.wait_for_cloudinit(api, node, lb_id)
 
-        userdata_location = "/usr/local/bin/userdata.sh"
-        with open(vm_userdata, "r") as f:
-            PveApi.write_file(api, node, lb_id, userdata_location, f.read())
-        PveApi.exec(api, node, lb_id, f"chmod +x {userdata_location}")
-        PveApi.exec(api, node, lb_id, userdata_location)
+        setup_script_location = "/usr/local/bin/setup.sh"
+        PveApi.write_file(api, node, lb_id, setup_script_location, scripts.LB_SETUP_SCRIPT)
+        PveApi.exec(api, node, lb_id, f"chmod +x {setup_script_location}")
+        PveApi.exec(api, node, lb_id, setup_script_location)
+
+        if vm_userdata:
+            userdata_location = "/usr/local/bin/userdata.sh"
+            with open(vm_userdata, "r") as f:
+                PveApi.write_file(api, node, lb_id, userdata_location, f.read())
+            PveApi.exec(api, node, lb_id, f"chmod +x {userdata_location}")
+            PveApi.exec(api, node, lb_id, userdata_location)
 
         backends = []
         for vmid in plane_ids:
