@@ -145,26 +145,34 @@ cp -r /root/pki/ /etc/kubernetes/
 
 # restore the etcd data, drop old membership data and re init again with single etcd node
 # NOTE: Pod will be in Pending and kube-apiserver yelling about authenticate request if not specify "--bump-revision 1000000000 --mark-compacted"
-ETCD_SNAPSHOT=/tmp/snapshot.db
-ETCD_SNAPSHOT=/root/etcd/member/snap/db
-BUMP_REVISION=1234567890
+ETCD_SNAPSHOT=/root/snapshot.db # clean snapshot using `etcdctl snapshot`
+ETCD_SNAPSHOT=/root/etcd/member/snap/db # hot copy from /var/lib/etcd/member/snap/db
+BUMP_REVISION=1000000000 # amount of revison will be bumped, etcd increase the revision every write, so most likey your snapshot is falling back if compared to the current state of the cluster
+NODE_NAME=i-122 # the node name that you're trying to restore to
+NODE_IP=192.168.56.22 # the node ip that you're trying to restore to
+
 etcdutl snapshot restore $ETCD_SNAPSHOT \
-  --name i-123 \
-  --initial-cluster i-123=https://192.168.56.23:2380 \
-  --initial-cluster-token test \
-  --initial-advertise-peer-urls https://192.168.56.23:2380 \
+  --name $NODE_NAME \
+  --initial-cluster $NODE_NAME=https://$NODE_IP:2380 \
+  --initial-cluster-token $RANDOM \
+  --initial-advertise-peer-urls https://$NODE_IP:2380 \
   --skip-hash-check=true \
   --bump-revision ${BUMP_REVISION:-1000000000} --mark-compacted \
   --data-dir /var/lib/etcd
 
-# init the cluster again and ignore existing data in /var/lib/etcd 
-# AND: you're good
+# init the cluster again and ignore existing data in /var/lib/etcd and you're good to go with your healthy cluster
 kubeadm init \
   --control-plane-endpoint='192.168.56.21' \
   --pod-network-cidr='10.244.0.0/16' \
   --service-cidr='10.233.0.0/16' \
   --ignore-preflight-errors=DirAvailable--var-lib-etcd
 ```
+
+## etcdserver timeout
+
+https://etcd.io/docs/v3.4/tuning/
+
+Mostly because of disk performance: I faced this issue when trying to evict a longhorn node, by evicting longhorn node, its storage (replicas, volume) got transfer to other node, which cause the disk io spike, I deploy the control plane vm and the worker vm on the same ssd sata, which make the evicting affect the etcd in the control plane vm. By moving the control plane vm to use other disk: mine nvme, the above issue is no longer seen. This thing will also happens if you deploying new deployment, helm, ... because the worker will pull the image which will make the dis io high again.
 
 # Decision / Choise / Explain
 
