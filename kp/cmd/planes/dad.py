@@ -1,4 +1,5 @@
 import os
+import time
 import urllib3
 import ipaddress
 
@@ -39,7 +40,7 @@ class CreateDadCmd(Cmd):
         self.parser.add_argument("--vm-disk", type=str, default="+20G")
         self.parser.add_argument("--vm-name-prefix", type=str, default="i-")
         self.parser.add_argument("--vm-username", type=str, default="u")
-        self.parser.add_argument("--vm-password", type=str, default="1")
+        self.parser.add_argument("--vm-password", type=str, default=str(time.time_ns()))
         self.parser.add_argument("--vm-start-on-boot", type=int, default=1)
         self.parser.add_argument("--vm-userdata", type=str, required=False)
 
