@@ -10,7 +10,7 @@ from kp.model import Cmd
 from kp.client.pve import PveApi
 from kp.service.plane import ControlPlaneService
 from kp.service.vm import VmService
-from kp .  scripts import worker as scripts
+from kp.scripts import worker as scripts
 
 
 class WorkerCmd(Cmd):
