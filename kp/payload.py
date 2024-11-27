@@ -1,6 +1,3 @@
-from typing import List, Union
-
-
 class VmResponse:
     def __init__(
             self,
@@ -12,7 +9,6 @@ class VmResponse:
         self.name = name
         self.status = status
         self.kwargs = kwargs
-        pass
 
     @property
     def tags(self):
@@ -22,7 +18,6 @@ class VmResponse:
 class VmConfigResponse:
     def __init__(self, **kwargs) -> None:
         self.kwargs = kwargs
-        pass
 
     def ifconfig(self, no: int):
         return self.kwargs.get("ipconfig" + str(no), None)

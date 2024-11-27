@@ -4,16 +4,49 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "reformat",
+            "label": "autopep8",
             "type": "shell",
-            "command": "cd ${workspaceFolder} && source .venv/bin/activate && find ./kp ./tests ./*.py -name '*.py' -exec autopep8 -v --in-place --ignore=E501 --aggressive --aggressive '{}' \\;",
+            "command": ".venv/bin/autopep8 -v *.py kp tests",
             "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "isort",
+            "type": "shell",
+            "command": ".venv/bin/isort -v *.py kp tests",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "fmt",
+            "type": "shell",
+            "command": ".venv/bin/isort -v *.py kp tests && .venv/bin/autopep8 -v *.py kp tests",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "pylint",
+            "type": "shell",
+            "command": ".venv/bin/pylint -v *.py kp tests",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
         },
         {
             "label": "build",
             "type": "shell",
-            "command": "cd ${workspaceFolder} && source .venv/bin/activate && find ./kp ./tests ./*.py -name '*.py' -exec autopep8 -v --in-place --ignore=E501 --aggressive --aggressive '{}' \\; && pyinstaller --name kp --onefile --hidden-import proxmoxer.backends --hidden-import proxmoxer.backends.https main.py",
+            "command": ".venv/bin/pyinstaller --name kp --onefile --hidden-import proxmoxer.backends --hidden-import proxmoxer.backends.https main.py",
             "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
         }
     ]
 }

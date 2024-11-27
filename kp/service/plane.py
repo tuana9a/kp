@@ -1,15 +1,9 @@
 import os
-import ipaddress
 
-from typing import List
 from proxmoxer import ProxmoxAPI
+
+from kp import config, error
 from kp.client.pve import PveApi
-from kp import util
-from kp.error import *
-from kp import config
-from kp.service.vm import VmService
-from kp.service.lb import LbService
-from kp.payload import VmResponse
 
 
 class ControlPlaneService:
@@ -21,7 +15,9 @@ class ControlPlaneService:
              pod_cidr,
              svc_cidr,
              timeout=10 * 60,
-             extra_opts=[]):
+             extra_opts=None):
+        if not extra_opts:
+            extra_opts = []
         cmd = [
             "kubeadm",
             "init",
@@ -36,13 +32,14 @@ class ControlPlaneService:
     def create_join_command(api: ProxmoxAPI,
                             node: str,
                             vm_id: str,
-                            cmd=["kubeadm", "token", "create",
-                                 "--print-join-command"],
+                            cmd=None,
                             is_control_plane=False,
                             timeout=config.TIMEOUT_IN_SECONDS):
+        if not cmd:
+            cmd = ["kubeadm", "token", "create", "--print-join-command"]
         exitcode, stdout, stderr = PveApi.exec(api, node, vm_id, cmd, timeout=timeout)
         if exitcode != 0:
-            raise CreateJoinCmdException(stderr)
+            raise error.CreateJoinCmdException(stderr)
         join_cmd = stdout.split()
         if is_control_plane:
             join_cmd.append("--control-plane")
@@ -54,15 +51,17 @@ class ControlPlaneService:
                    vm_id: str,
                    node_name: str,
                    kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_PATH,
-                   opts=["--ignore-daemonsets",
-                         "--delete-emptydir-data",
-                         "--disable-eviction=true"]):
+                   opts=None):
+        if not opts:
+            opts = ["--ignore-daemonsets",
+                    "--delete-emptydir-data",
+                    "--disable-eviction=true"]
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "drain", node_name]
         cmd.extend(opts)
         # 30 mins should be enough
         exitcode, stdout, stderr = PveApi.exec(api, node, vm_id, cmd, timeout=30 * 60)
         if exitcode != 0:
-            raise Exception(f"{node} {vm_id} drain {node_name} failed")
+            raise error.SafeException(f"{node} {vm_id} drain {node_name} failed")
         return exitcode, stdout, stderr
 
     @staticmethod
@@ -71,7 +70,9 @@ class ControlPlaneService:
                       vm_id: str,
                       node_name: str,
                       kubeconfig_filepath=config.KUBERNETES_ADMIN_CONF_PATH,
-                      opts=[]):
+                      opts=None):
+        if not opts:
+            opts = []
         cmd = ["kubectl", f"--kubeconfig={kubeconfig_filepath}", "uncordon", node_name]
         cmd.extend(opts)
         return PveApi.exec(api, node, vm_id, cmd, timeout=5 * 60)
@@ -89,10 +90,12 @@ class ControlPlaneService:
     def ensure_cert_dirs(api: ProxmoxAPI,
                          node: str,
                          vm_id: str,
-                         cert_dirs=[
-            "/etc/kubernetes/pki",
-            "/etc/kubernetes/pki/etcd",
-                             ]):
+                         cert_dirs=None):
+        if not cert_dirs:
+            cert_dirs = [
+                "/etc/kubernetes/pki",
+                "/etc/kubernetes/pki/etcd",
+            ]
         for d in cert_dirs:
             cmd = ["mkdir", "-p", d]
             PveApi.exec(api, node, vm_id, cmd)
@@ -119,7 +122,9 @@ class ControlPlaneService:
                         node: str,
                         src_id,
                         dest_id,
-                        cert_paths=config.KUBERNETES_CERT_PATHS):
+                        cert_paths=None):
+        if not cert_paths:
+            cert_paths = config.KUBERNETES_CERT_PATHS
         # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/#manual-certs
         for cert_path in cert_paths:
             r = PveApi.read_file(api, node, src_id, cert_path)
