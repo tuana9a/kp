@@ -1,8 +1,8 @@
 import unittest
 
-from kp.util.proxmox import parse_ifconfig
-from kp.util.num import find_missing, find_missing_number
 from kp.util import kubevip
+from kp.util.num import find_missing, find_missing_number
+from kp.util.proxmox import parse_ifconfig
 
 
 class TestFindMissing(unittest.TestCase):

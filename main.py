@@ -1,5 +1,5 @@
-import sys
 import argparse
+import sys
 
 from kp.cmd import RootCmd
 

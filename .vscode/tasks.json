@@ -13,6 +13,24 @@
             }
         },
         {
+            "label": "isort",
+            "type": "shell",
+            "command": ".venv/bin/isort -v *.py kp tests",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "fmt",
+            "type": "shell",
+            "command": ".venv/bin/isort -v *.py kp tests && .venv/bin/autopep8 -v *.py kp tests",
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
             "label": "pylint",
             "type": "shell",
             "command": ".venv/bin/pylint -v *.py kp tests",
