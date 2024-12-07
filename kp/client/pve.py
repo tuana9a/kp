@@ -258,11 +258,12 @@ class PveApi:
     @staticmethod
     def update_config(api: ProxmoxAPI,
                       node: str,
-                      vm_id: str, **kwargs):  # TODO: rename kwargs to update_body
+                      vm_id: str,
+                      new_config: dict):
 
         log.info(node, vm_id, "update_config")
-        log.debug(node, vm_id, "update_config", kwargs)
-        r = api.nodes(node).qemu(vm_id).config.put(**kwargs)
+        log.debug(node, vm_id, "update_config", new_config)
+        r = api.nodes(node).qemu(vm_id).config.put(new_config)
         log.debug(node, vm_id, "update_config", r)
         return r
 

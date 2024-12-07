@@ -24,8 +24,9 @@ def run(args):
     vm_start_on_boot = args.vm_start_on_boot
     network_gw_ip = PveApi.describe_network(api, node, vm_network)["ip"]
 
-    PveApi.update_config(api, node, vmid,
-                         name=new_vm_name,
+    if vm_disk_size:
+        PveApi.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
+    PveApi.update_config(api, node, vmid, dict(name=new_vm_name,
                          cpu="cputype=host",
                          cores=vm_cores,
                          memory=vm_mem,
@@ -36,9 +37,7 @@ def run(args):
                          ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
                          sshkeys=encode_sshkeys(cfg.vm_ssh_keys),
                          onboot=vm_start_on_boot,
-                         tags=";".join([config.Tag.kp]))
-
-    PveApi.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
+                         tags=";".join([config.Tag.kp])))
 
 
 def UpdateConfigCmd(parser: argparse.ArgumentParser):
@@ -47,7 +46,7 @@ def UpdateConfigCmd(parser: argparse.ArgumentParser):
     parser.add_argument("--vm-ip", type=str, required=True)
     parser.add_argument("--vm-cores", type=int, default=2)
     parser.add_argument("--vm-mem", type=int, default=2048)
-    parser.add_argument("--vm-disk", type=str, default="+20G")
+    parser.add_argument("--vm-disk", type=str, default="")
     parser.add_argument("--vm-name-prefix", type=str, default="i-")
     parser.add_argument("--vm-username", type=str, default="u")
     parser.add_argument("--vm-password", type=str, default=str(time.time_ns()))

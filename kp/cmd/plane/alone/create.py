@@ -38,8 +38,8 @@ def run(args):
     svc_cidr = args.svc_cidr
 
     PveApi.clone(api, node, template_id, vmid)
-    PveApi.update_config(api, node, vmid,
-                         name=new_vm_name,
+    PveApi.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
+    PveApi.update_config(api, node, vmid, dict(name=new_vm_name,
                          cpu="cputype=host",
                          cores=vm_cores,
                          memory=vm_mem,
@@ -50,9 +50,7 @@ def run(args):
                          ipconfig0=f"ip={vm_ip}/24,gw={network_gw_ip}",
                          sshkeys=encode_sshkeys(cfg.vm_ssh_keys),
                          onboot=vm_start_on_boot,
-                         tags=";".join([config.Tag.kp]),
-                         )
-    PveApi.resize_disk(api, node, vmid, "scsi0", vm_disk_size)
+                         tags=";".join([config.Tag.kp])))
 
     PveApi.startup(api, node, vmid)
     PveApi.wait_for_guestagent(api, node, vmid)
