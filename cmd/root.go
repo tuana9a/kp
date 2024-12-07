@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	defaultConfigLocation := os.Getenv("KP_CONFIG")
 	if defaultConfigLocation == "" {
-		defaultConfigLocation = filepath.Join(os.Getenv("HOME"), "/.kp.json")
+		defaultConfigLocation = filepath.Join(os.Getenv("HOME"), "/.kp.config.json")
 	}
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().StringVarP(&Config, "config", "c", defaultConfigLocation, "verbose output")
