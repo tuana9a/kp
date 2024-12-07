@@ -1,5 +1,6 @@
 {
     "files.autoSave": "off",
+    "editor.formatOnSave": false,
     "notebook.output.scrolling": true,
     "notebook.output.textLineLimit": 200
 }

@@ -1,17 +1,17 @@
 package util
 
 import (
-	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
-	"time"
+	"net/url"
 
 	"github.com/luthermonson/go-proxmox"
 	"github.com/tuana9a/kp/config"
 )
 
-func CreateProxmoxClient(cfg config.Cfg) *proxmox.Client {
+func CreateProxmoxClient(cfg config.Cfg) (*proxmox.Client, error) {
 	insecureHTTPClient := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -25,6 +25,7 @@ func CreateProxmoxClient(cfg config.Cfg) *proxmox.Client {
 			proxmox.WithHTTPClient(&insecureHTTPClient),
 			proxmox.WithAPIToken(cfg.ProxmoxTokenId, cfg.ProxmoxTokenValue),
 		)
+		return client, nil
 	}
 	if cfg.ProxmoxUser != "" {
 		credentials := proxmox.Credentials{
@@ -35,17 +36,12 @@ func CreateProxmoxClient(cfg config.Cfg) *proxmox.Client {
 			proxmox.WithHTTPClient(&insecureHTTPClient),
 			proxmox.WithCredentials(&credentials),
 		)
+		return client, nil
 	}
 
-	version, err := client.Version(context.Background())
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("proxmox-api version: ", version.Version)
-	return client
+	return nil, errors.New("can not detect any authentication method")
 }
 
-func WaitForCloudInitToComplete(ctx context.Context, vm *proxmox.VirtualMachine, max int) {
-	timeout := time.After(time.Duration(max) * time.Second)
-	
+func EncodeSshKeys(content string) string {
+	return url.QueryEscape(content)
 }

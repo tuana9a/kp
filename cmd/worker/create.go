@@ -2,13 +2,16 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"time"
+	"math"
 
 	"github.com/luthermonson/go-proxmox"
 	"github.com/spf13/cobra"
+	"github.com/tuana9a/kp/constants"
+	"github.com/tuana9a/kp/model"
+	"github.com/tuana9a/kp/templates"
 	"github.com/tuana9a/kp/util"
-	"go.uber.org/zap"
 )
 
 var dadId int
@@ -30,93 +33,178 @@ var createCmd = &cobra.Command{
 	Use: "create",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
-		config, _ := cmd.Root().PersistentFlags().GetString("config")
+		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
 
-		cfg := util.LoadConfig(config)
+		cfg := util.LoadConfig(configPath)
 		if verbose {
 			fmt.Println("verbose: ", verbose)
 		}
-		newVmName := vmNamePrefix + string(childId)
 
-		logger := util.CreateLogger(cfg.LogLevel)
-		proxmoxClient := util.CreateProxmoxClient(cfg)
+		// logger := util.CreateLogger(cfg.LogLevel)
+		proxmoxClient, _ := util.CreateProxmoxClient(cfg)
+		version, err := proxmoxClient.Version(context.Background())
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("proxmox-api version: ", version.Version)
 		ctx := context.Background()
 
-		node, err := proxmoxClient.Node(ctx, cfg.ProxmoxNode)
+		pveNode, err := proxmoxClient.Node(ctx, cfg.ProxmoxNode)
 		if err != nil {
-			logger.Error("Error when getting proxmox node", zap.Error(err))
+			fmt.Println("Error when getting proxmox node", err)
 			return
 		}
 
-		network, err := node.Network(ctx, vmNet)
+		vmTemplate, err := pveNode.VirtualMachine(ctx, vmTemplateId)
 		if err != nil {
-			logger.Error("Error when getting node network", zap.Error(err))
+			fmt.Println("Error when getting template vm", err)
 			return
 		}
 
-		logger.Debug("network", zap.String("name", vmNet), zap.String("gateway", network.Gateway))
-		gatewayIp := network.Gateway
-		vmTemplate, err := node.VirtualMachine(ctx, vmTemplateId)
-		if err != nil {
-			logger.Error("Error when getting vm", zap.Error(err))
-			return
-		}
-
-		_, cloneTask, err := vmTemplate.Clone(ctx, &proxmox.VirtualMachineCloneOptions{
+		_, task, err := vmTemplate.Clone(ctx, &proxmox.VirtualMachineCloneOptions{
 			NewID: childId,
 		})
 		if err != nil {
-			logger.Error("Error when cloning vm", zap.Error(err))
+			fmt.Println("Error when cloning vm", err)
+			return
+		}
+		_, completed, _ := task.WaitForCompleteStatus(ctx, 30)
+		fmt.Println("Wait for clone task", completed)
+		if !completed {
+			fmt.Println("Can not complete cloning vm", task.ID)
 			return
 		}
 
-		cloneStatus, isCloneCompleted, _ := cloneTask.WaitForCompleteStatus(ctx, 30)
-		logger.Debug("Wait for clone task", zap.Bool("status", cloneStatus), zap.Bool("completed", isCloneCompleted))
-		if !isCloneCompleted {
-			logger.Error("Can not complete cloning vm", zap.String("taskId", cloneTask.ID))
-			return
-		}
-
-		vmChild, err := node.VirtualMachine(ctx, childId)
+		vmChild, err := pveNode.VirtualMachine(ctx, childId)
 		if err != nil {
-			logger.Error("Error when getting vm", zap.Error(err))
-			return
-		}
-
-		updateConfigTask, err := vmChild.Config(ctx,
-			proxmox.VirtualMachineOption{Name: "name", Value: newVmName},
-			proxmox.VirtualMachineOption{Name: "cpu", Value: "cputype=host"},
-			proxmox.VirtualMachineOption{Name: "cores", Value: vmCores},
-			proxmox.VirtualMachineOption{Name: "memory", Value: vmMem},
-			proxmox.VirtualMachineOption{Name: "agent", Value: "enabled=1"},
-			proxmox.VirtualMachineOption{Name: "ciuser", Value: vmUsername},
-			proxmox.VirtualMachineOption{Name: "cipassword", Value: vmPassword},
-			proxmox.VirtualMachineOption{Name: "net0", Value: fmt.Sprintf("virtio,bridge=%s", vmNet)},
-			proxmox.VirtualMachineOption{Name: "ipconfig0", Value: fmt.Sprintf("ip=%s/%s,gw=%s", vmNet, network.Netmask, gatewayIp)},
-			proxmox.VirtualMachineOption{Name: "sshkeys", Value: vmSshKeys},
-			proxmox.VirtualMachineOption{Name: "onboot", Value: vmStartOnBoot},
-		)
-		if err != nil {
-			logger.Error("Error when update vm config", zap.Error(err))
-			return
-		}
-		updateConfigStatus, isUpdateConfigCompleted, _ := updateConfigTask.WaitForCompleteStatus(ctx, 30)
-		logger.Debug("Wait for update config task", zap.Bool("status", updateConfigStatus), zap.Bool("completed", isUpdateConfigCompleted))
-		if !isUpdateConfigCompleted {
-			logger.Error("Can not update vm config", zap.String("taskId", updateConfigTask.ID))
+			fmt.Println("Error when getting child vm", childId, err)
 			return
 		}
 
 		err = vmChild.ResizeDisk(ctx, "scsi0", vmDiskSize)
 		if err != nil {
-			logger.Error("Error when resize disk vm", zap.Error(err))
+			fmt.Println("Error when resize disk child vm", childId, err)
 			return
 		}
 
-		startVmTask, _ := vmChild.Start(ctx)
-		startVmTask.WaitForCompleteStatus(ctx, 60)
-		vmChild.WaitForAgent(ctx, 5*60)
-		vmChild.WaitForAgentExecExit()
+		network, err := pveNode.Network(ctx, vmNet)
+		fmt.Println("network", network)
+		if err != nil {
+			fmt.Println("Error when getting node network", err)
+			return
+		}
+
+		gatewayIp := network.Address
+		fmt.Println("network", vmNet, "gatewayIp", gatewayIp)
+
+		newConfig := []proxmox.VirtualMachineOption{
+			{Name: "name", Value: fmt.Sprintf("%s%d", vmNamePrefix, childId)},
+			{Name: "cpu", Value: "cputype=host"},
+			{Name: "cores", Value: vmCores},
+			{Name: "memory", Value: vmMem},
+			{Name: "balloon", Value: int(math.Max(float64(vmMem/2), 1024))},
+			{Name: "vga", Value: "type=qxl"},
+			{Name: "agent", Value: "enabled=1"},
+			{Name: "ciuser", Value: vmUsername},
+			{Name: "cipassword", Value: vmPassword},
+			{Name: "net0", Value: fmt.Sprintf("virtio,bridge=%s", vmNet)},
+			{Name: "ipconfig0", Value: fmt.Sprintf("ip=%s/%s,gw=%s", vmIp, network.Netmask, gatewayIp)},
+			// {Name: "sshkeys", Value: util.EncodeSshKeys(vmSshKeys)},
+			{Name: "onboot", Value: vmStartOnBoot},
+		}
+		fmt.Println("Update child vm config", childId, newConfig)
+		task, err = vmChild.Config(ctx, newConfig...)
+		if err != nil {
+			fmt.Println("Error when update vm config", err)
+			return
+		}
+		_, completed, _ = task.WaitForCompleteStatus(ctx, 30)
+		fmt.Println("Wait for update config task", "completed", completed)
+		if !completed {
+			fmt.Println("Can not update vm config", "taskId", task.ID)
+			return
+		}
+
+		fmt.Println("Start vm", childId)
+		task, err = vmChild.Start(ctx)
+		if err != nil {
+			fmt.Println("Failed to start vm")
+			return
+		}
+		task.WaitForCompleteStatus(ctx, 60)
+
+		fmt.Println("Wait for agent")
+		err = vmChild.WaitForAgent(ctx, 5*60)
+		if err != nil {
+			fmt.Println("Error when wait for agent", err)
+			return
+		}
+
+		vmChildV2 := model.VirtualMachineV2{
+			V1:     vmChild,
+			Client: proxmoxClient,
+		}
+
+		fmt.Println("Wait for cloud-init")
+		err = vmChildV2.WaitForCloudInit(ctx)
+		if err != nil {
+			fmt.Println("Error when wait for cloud-init", err)
+			return
+		}
+
+		fmt.Println("Write setup script")
+		err = vmChildV2.AgentFileWrite(ctx, constants.SetupScriptPath, templates.WorkderSetupScriptDefault)
+		if err != nil {
+			fmt.Println("Error when agent file write setup script")
+			return
+		}
+
+		fmt.Println("Chmod setup script")
+		pid, _ := vmChild.AgentExec(ctx, []string{"chmod", "+x", constants.SetupScriptPath}, "")
+		status, _ := vmChild.WaitForAgentExecExit(ctx, pid, 5)
+		fmt.Println("Chmod setup script status", status)
+
+		fmt.Println("Exec setup script")
+		pid, _ = vmChild.AgentExec(ctx, []string{constants.SetupScriptPath}, "")
+		status, _ = vmChild.WaitForAgentExecExit(ctx, pid, 30*60)
+		fmt.Println("Exec setup script status", status)
+
+		fmt.Println("write containerd config")
+		vmChildV2.EnsureContainerdConfig(ctx)
+
+		fmt.Println("Restart containerd")
+		vmChildV2.RestartContainerd(ctx)
+
+		vmDad, err := pveNode.VirtualMachine(ctx, dadId)
+		if err != nil {
+			fmt.Println("Error when getting vm", dadId, err)
+			return
+		}
+		vmDadV2 := model.VirtualMachineV2{
+			V1:     vmDad,
+			Client: proxmoxClient,
+		}
+
+		fmt.Println("Create join command")
+		joinCmd, err := vmDadV2.CreateWorkerJoinCommand(ctx)
+		fmt.Println(json.Marshal(joinCmd))
+		if err != nil {
+			// TODO
+		}
+
+		fmt.Println("Exec join command")
+		pid, err = vmChild.AgentExec(ctx, joinCmd, "")
+		if err != nil {
+			// TODO
+		}
+		status, err = vmChild.WaitForAgentExecExit(ctx, pid, 10*60)
+		fmt.Println("Exec join command status", status)
+		if err != nil {
+			// TODO
+		}
+		if status.ExitCode != 0 {
+			// TODO
+		}
 	},
 }
 
@@ -146,7 +234,7 @@ func init() {
 
 	createCmd.Flags().StringVar(&vmUsername, "vm-username", "u", "username for VM access (default: u)")
 
-	createCmd.Flags().StringVar(&vmPassword, "vm-password", fmt.Sprintf("%d", time.Now().UnixNano()), "password for VM access (default: current timestamp)")
+	createCmd.Flags().StringVar(&vmPassword, "vm-password", "p", "password for VM access (default: p)")
 
 	createCmd.Flags().BoolVar(&vmStartOnBoot, "vm-start-on-boot", true, "start VM on boot (default: true)")
 
