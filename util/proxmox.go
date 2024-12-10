@@ -11,7 +11,7 @@ import (
 	"github.com/tuana9a/kp/config"
 )
 
-func CreateProxmoxClient(cfg config.Cfg) (*proxmox.Client, error) {
+func CreateProxmoxClient(cfg *config.Cfg) (*proxmox.Client, error) {
 	insecureHTTPClient := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{

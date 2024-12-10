@@ -6,7 +6,7 @@ import (
 	"github.com/tuana9a/kp/config"
 )
 
-func LoadConfig(configPath string) config.Cfg {
+func LoadConfig(configPath string) *config.Cfg {
 	blob, err := os.ReadFile(configPath)
 	// fmt.Println(string(blob))
 	if err != nil {
