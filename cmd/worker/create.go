@@ -64,7 +64,15 @@ var createCmd = &cobra.Command{
 			return
 		}
 
-		err = vmChild.ResizeDisk(ctx, "scsi0", vmDiskSize)
+		kubeVmChild := model.KubeVirtualMachine{
+			VirtualMachineV2: &model.VirtualMachineV2{
+				VirtualMachine: vmChild,
+				ProxmoxClient:  proxmoxClient,
+			},
+			ProxmoxClient: proxmoxClient,
+		}
+
+		err = kubeVmChild.ResizeDisk(ctx, "scsi0", vmDiskSize)
 		if err != nil {
 			fmt.Println("Error when resize disk child vm", childId, err)
 			return
@@ -95,7 +103,7 @@ var createCmd = &cobra.Command{
 			{Name: "onboot", Value: vmStartOnBoot},
 		}
 		fmt.Println("Update child vm config", childId, newConfig)
-		task, err = vmChild.Config(ctx, newConfig...)
+		task, err = kubeVmChild.Config(ctx, newConfig...)
 		if err != nil {
 			fmt.Println("Error when update vm config", err)
 			return
@@ -108,7 +116,7 @@ var createCmd = &cobra.Command{
 		}
 
 		fmt.Println("Start vm", childId)
-		task, err = vmChild.Start(ctx)
+		task, err = kubeVmChild.Start(ctx)
 		if err != nil {
 			fmt.Println("Failed to start vm")
 			return
@@ -116,35 +124,30 @@ var createCmd = &cobra.Command{
 		task.WaitForCompleteStatus(ctx, 60)
 
 		fmt.Println("Wait for agent")
-		err = vmChild.WaitForAgent(ctx, 5*60)
+		err = kubeVmChild.WaitForAgent(ctx, 5*60)
 		if err != nil {
 			fmt.Println("Error when wait for agent", err)
 			return
 		}
 
-		vmChildV2 := &model.VirtualMachineV2{
-			VirtualMachine: vmChild,
-			Api:            proxmoxClient,
-		}
-
 		fmt.Println("Wait for cloud-init")
-		err = vmChildV2.WaitForCloudInit(ctx)
+		err = kubeVmChild.WaitForCloudInit(ctx)
 		if err != nil {
 			fmt.Println("Error when wait for cloud-init", err)
 			return
 		}
 
 		if vmAuthoriedKeysFile != "" {
-			pid, _ := vmChildV2.AgentExec(ctx, []string{"mkdir", "-p", fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
-			status, _ := vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			pid, _ := kubeVmChild.AgentExec(ctx, []string{"mkdir", "-p", fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
+			status, _ := kubeVmChild.WaitForAgentExecExit(ctx, pid, 5)
 			fmt.Println("Mkdir ~/.ssh status", status)
 
-			pid, _ = vmChildV2.AgentExec(ctx, []string{"chown", "-R", fmt.Sprintf("%s:%s", vmUsername, vmUsername), fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
-			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			pid, _ = kubeVmChild.AgentExec(ctx, []string{"chown", "-R", fmt.Sprintf("%s:%s", vmUsername, vmUsername), fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
+			status, _ = kubeVmChild.WaitForAgentExecExit(ctx, pid, 5)
 			fmt.Println("Chown ~/.ssh status", status)
 
-			pid, _ = vmChildV2.AgentExec(ctx, []string{"chmod", "-R", "700", fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
-			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			pid, _ = kubeVmChild.AgentExec(ctx, []string{"chmod", "-R", "700", fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
+			status, _ = kubeVmChild.WaitForAgentExecExit(ctx, pid, 5)
 			fmt.Println("Chmod ~/.ssh status", status)
 
 			fmt.Println("Write ~/.ssh/authorized_keys")
@@ -153,33 +156,33 @@ var createCmd = &cobra.Command{
 				fmt.Println("Error when reading vmAuthoriedKeysFile", err)
 				return
 			}
-			err = vmChildV2.AgentFileWrite(ctx, fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmUsername), string(blob))
+			err = kubeVmChild.AgentFileWrite(ctx, fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmUsername), string(blob))
 			if err != nil {
 				fmt.Println("Error when writing ~/.ssh/authorized_keys", err)
 				return
 			}
 
 			fmt.Println("Chmod ~/.ssh/authorized_keys")
-			pid, _ = vmChildV2.AgentExec(ctx, []string{"chmod", "700", fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmUsername)}, "")
-			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			pid, _ = kubeVmChild.AgentExec(ctx, []string{"chmod", "700", fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmUsername)}, "")
+			status, _ = kubeVmChild.WaitForAgentExecExit(ctx, pid, 5)
 			fmt.Println("Chmod ~/.ssh/authorized_keys status", status)
 		}
 
 		fmt.Println("Write setup script")
-		err = vmChildV2.AgentFileWrite(ctx, constants.SetupScriptPath, templates.WorkderSetupScriptDefault)
+		err = kubeVmChild.AgentFileWrite(ctx, constants.SetupScriptPath, templates.WorkderSetupScriptDefault)
 		if err != nil {
 			fmt.Println("Error when agent file write setup script")
 			return
 		}
 
 		fmt.Println("Chmod setup script")
-		pid, _ := vmChild.AgentExec(ctx, []string{"chmod", "+x", constants.SetupScriptPath}, "")
-		status, _ := vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+		pid, _ := kubeVmChild.AgentExec(ctx, []string{"chmod", "+x", constants.SetupScriptPath}, "")
+		status, _ := kubeVmChild.WaitForAgentExecExit(ctx, pid, 5)
 		fmt.Println("Chmod setup script status", status)
 
 		fmt.Println("Exec setup script")
-		pid, _ = vmChild.AgentExec(ctx, []string{constants.SetupScriptPath}, "")
-		status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 30*60)
+		pid, _ = kubeVmChild.AgentExec(ctx, []string{constants.SetupScriptPath}, "")
+		status, _ = kubeVmChild.WaitForAgentExecExit(ctx, pid, 30*60)
 		fmt.Println("Exec setup script status", status)
 
 		if vmUserdata != "" {
@@ -189,27 +192,23 @@ var createCmd = &cobra.Command{
 				return
 			}
 			fmt.Println("Write userdata script")
-			err = vmChildV2.AgentFileWrite(ctx, constants.UserdataScriptPath, string(content))
+			err = kubeVmChild.AgentFileWrite(ctx, constants.UserdataScriptPath, string(content))
 			if err != nil {
 				fmt.Println("Error when agent file write userdata script")
 				return
 			}
 
 			fmt.Println("Chmod userdata script")
-			pid, _ := vmChild.AgentExec(ctx, []string{"chmod", "+x", constants.UserdataScriptPath}, "")
-			status, _ := vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			pid, _ := kubeVmChild.AgentExec(ctx, []string{"chmod", "+x", constants.UserdataScriptPath}, "")
+			status, _ := kubeVmChild.WaitForAgentExecExit(ctx, pid, 5)
 			fmt.Println("Chmod userdata script status", status)
 
 			fmt.Println("Exec userdata script")
-			pid, _ = vmChild.AgentExec(ctx, []string{constants.UserdataScriptPath}, "")
-			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 30*60)
+			pid, _ = kubeVmChild.AgentExec(ctx, []string{constants.UserdataScriptPath}, "")
+			status, _ = kubeVmChild.WaitForAgentExecExit(ctx, pid, 30*60)
 			fmt.Println("Exec userdata script status", status)
 		}
 
-		kubeVmChild := &model.KubeVirtualMachine{
-			VirtualMachineV2: vmChildV2,
-			Api:              proxmoxClient,
-		}
 		fmt.Println("write containerd config")
 		kubeVmChild.EnsureContainerdConfig(ctx)
 
@@ -221,13 +220,12 @@ var createCmd = &cobra.Command{
 			fmt.Println("Error when getting vm", dadId, err)
 			return
 		}
-		vmDadV2 := &model.VirtualMachineV2{
-			VirtualMachine: vmDad,
-			Api:            proxmoxClient,
-		}
 		kubeVmDad := model.KubeVirtualMachine{
-			VirtualMachineV2: vmDadV2,
-			Api:              proxmoxClient,
+			VirtualMachineV2: &model.VirtualMachineV2{
+				VirtualMachine: vmDad,
+				ProxmoxClient:  proxmoxClient,
+			},
+			ProxmoxClient: proxmoxClient,
 		}
 
 		fmt.Println("Create join command")
@@ -238,11 +236,11 @@ var createCmd = &cobra.Command{
 		}
 
 		fmt.Println("Exec join command")
-		pid, err = vmChild.AgentExec(ctx, joinCmd, "")
+		pid, err = kubeVmChild.AgentExec(ctx, joinCmd, "")
 		if err != nil {
 			// TODO
 		}
-		status, err = vmChildV2.WaitForAgentExecExit(ctx, pid, 10*60)
+		status, err = kubeVmChild.WaitForAgentExecExit(ctx, pid, 10*60)
 		if err != nil {
 			// TODO
 			fmt.Println("Error when exec join command", err)

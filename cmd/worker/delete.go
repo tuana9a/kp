@@ -44,13 +44,12 @@ var deleteCmd = &cobra.Command{
 			fmt.Println("Error when getting dad vm", dadId, err)
 			return
 		}
-		vmDadV2 := model.VirtualMachineV2{
-			VirtualMachine: vmDad,
-			Api:            proxmoxClient,
-		}
 		kubeVmDad := model.KubeVirtualMachine{
-			VirtualMachineV2: &vmDadV2,
-			Api:              proxmoxClient,
+			VirtualMachineV2: &model.VirtualMachineV2{
+				VirtualMachine: vmDad,
+				ProxmoxClient:  proxmoxClient,
+			},
+			ProxmoxClient: proxmoxClient,
 		}
 
 		fmt.Println("Drain node", vmChild.Name)
