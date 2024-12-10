@@ -13,7 +13,7 @@ import (
 
 type VirtualMachineV2 struct {
 	*proxmox.VirtualMachine
-	Api *proxmox.Client
+	ProxmoxClient *proxmox.Client
 }
 
 func (vm *VirtualMachineV2) WaitForCloudInit(ctx context.Context) error {
@@ -50,11 +50,11 @@ func (vm *VirtualMachineV2) WaitForCloudInit(ctx context.Context) error {
 }
 
 func (vm *VirtualMachineV2) AgentFileWrite(ctx context.Context, location string, content string) error {
-	err := vm.Api.Post(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/file-write", vm.Node, vm.VMID), map[string]string{"file": location, "content": content}, nil)
+	err := vm.ProxmoxClient.Post(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/file-write", vm.Node, vm.VMID), map[string]string{"file": location, "content": content}, nil)
 	return err
 }
 
 func (vm *VirtualMachineV2) AgentFileRead(ctx context.Context, location string, content *string) error {
-	err := vm.Api.Get(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/file-read?file=%s", vm.Node, vm.VMID, location), &content)
+	err := vm.ProxmoxClient.Get(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/file-read?file=%s", vm.Node, vm.VMID, location), &content)
 	return err
 }
