@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 
 	"github.com/luthermonson/go-proxmox"
 	"github.com/spf13/cobra"
@@ -14,33 +15,15 @@ import (
 	"github.com/tuana9a/kp/util"
 )
 
-var dadId int
-var childId int
-var vmTemplateId int
-var vmNet string
-var vmIp string
-var vmCores int
-var vmMem int
-var vmDiskSize string
-var vmNamePrefix string
-var vmUsername string
-var vmPassword string
-var vmStartOnBoot bool
-var vmUserdata string
-var vmSshKeys = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCx5LBYrl0TfkKChabUT6Fdwj40qr1eUCKBxIydmWOscQ+DlptTtN28PMmiIp6WAvYfQAD2lp5F6P1znFqqzKpKL/TFswfjdrbb0Br688jmzbeFAZ8cMDwJAEVxMi9P8Gkl5BxfTcVlrxyPdzfAjWps8DkZ8d8QkdKh6puAqfff1oN5/ubOOnSlvUL89VJmkE4jAuN1P5YTwYuz7mCP33LwBKltUqhLkGw5kKLz9MCF7GQ/9smH/1VKaBAsHMHx93ByISVU8zaVjbNfYE6vyHoDZUkLBZTtgksGZboyp8Rfj4+IBQVZ1xy9MiBQFMEAfNXEAHxD3QWNdRNGfNulqwvxeGNyja32gB+M4Ef4pybQ6KHDqW1aVOCqHLlGsQmMQN6E8HShZKQp9Fkq7kT+9e9LKDoJOem8Hb5E3xPD4umReogccJnHJCNuDQOM+Gfqlj1o4w+RTVA5ss6xsMGqUEdHBgoBYZZ2tgQYrIathq7V9+y0Yy3M4YZyEV9WyQI6HwU= u@tuana9a-dev2"
-
 var createCmd = &cobra.Command{
 	Use: "create",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
+		fmt.Println("verbose: ", verbose)
+
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
-
 		cfg := util.LoadConfig(configPath)
-		if verbose {
-			fmt.Println("verbose: ", verbose)
-		}
 
-		// logger := util.CreateLogger(cfg.LogLevel)
 		proxmoxClient, _ := util.CreateProxmoxClient(cfg)
 		version, err := proxmoxClient.Version(context.Background())
 		if err != nil {
@@ -102,14 +85,13 @@ var createCmd = &cobra.Command{
 			{Name: "cpu", Value: "cputype=host"},
 			{Name: "cores", Value: vmCores},
 			{Name: "memory", Value: vmMem},
-			{Name: "balloon", Value: int(math.Max(float64(vmMem/2), 1024))},
+			{Name: "balloon", Value: int(math.Min(math.Max(float64(vmMem/2), 1024), float64(vmMem)))},
 			{Name: "vga", Value: "type=qxl"},
 			{Name: "agent", Value: "enabled=1"},
 			{Name: "ciuser", Value: vmUsername},
 			{Name: "cipassword", Value: vmPassword},
 			{Name: "net0", Value: fmt.Sprintf("virtio,bridge=%s", vmNet)},
 			{Name: "ipconfig0", Value: fmt.Sprintf("ip=%s/%s,gw=%s", vmIp, network.Netmask, gatewayIp)},
-			// {Name: "sshkeys", Value: util.EncodeSshKeys(vmSshKeys)},
 			{Name: "onboot", Value: vmStartOnBoot},
 		}
 		fmt.Println("Update child vm config", childId, newConfig)
@@ -140,9 +122,9 @@ var createCmd = &cobra.Command{
 			return
 		}
 
-		vmChildV2 := model.VirtualMachineV2{
-			V1:     vmChild,
-			Client: proxmoxClient,
+		vmChildV2 := &model.VirtualMachineV2{
+			VirtualMachine: vmChild,
+			Api:            proxmoxClient,
 		}
 
 		fmt.Println("Wait for cloud-init")
@@ -150,6 +132,37 @@ var createCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("Error when wait for cloud-init", err)
 			return
+		}
+
+		if vmAuthoriedKeysFile != "" {
+			pid, _ := vmChildV2.AgentExec(ctx, []string{"mkdir", "-p", fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
+			status, _ := vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			fmt.Println("Mkdir ~/.ssh status", status)
+
+			pid, _ = vmChildV2.AgentExec(ctx, []string{"chown", "-R", fmt.Sprintf("%s:%s", vmUsername, vmUsername), fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
+			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			fmt.Println("Chown ~/.ssh status", status)
+
+			pid, _ = vmChildV2.AgentExec(ctx, []string{"chmod", "-R", "700", fmt.Sprintf("/home/%s/.ssh", vmUsername)}, "")
+			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			fmt.Println("Chmod ~/.ssh status", status)
+
+			fmt.Println("Write ~/.ssh/authorized_keys")
+			blob, err := os.ReadFile(vmAuthoriedKeysFile)
+			if err != nil {
+				fmt.Println("Error when reading vmAuthoriedKeysFile", err)
+				return
+			}
+			err = vmChildV2.AgentFileWrite(ctx, fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmUsername), string(blob))
+			if err != nil {
+				fmt.Println("Error when writing ~/.ssh/authorized_keys", err)
+				return
+			}
+
+			fmt.Println("Chmod ~/.ssh/authorized_keys")
+			pid, _ = vmChildV2.AgentExec(ctx, []string{"chmod", "700", fmt.Sprintf("/home/%s/.ssh/authorized_keys", vmUsername)}, "")
+			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			fmt.Println("Chmod ~/.ssh/authorized_keys status", status)
 		}
 
 		fmt.Println("Write setup script")
@@ -161,32 +174,64 @@ var createCmd = &cobra.Command{
 
 		fmt.Println("Chmod setup script")
 		pid, _ := vmChild.AgentExec(ctx, []string{"chmod", "+x", constants.SetupScriptPath}, "")
-		status, _ := vmChild.WaitForAgentExecExit(ctx, pid, 5)
+		status, _ := vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
 		fmt.Println("Chmod setup script status", status)
 
 		fmt.Println("Exec setup script")
 		pid, _ = vmChild.AgentExec(ctx, []string{constants.SetupScriptPath}, "")
-		status, _ = vmChild.WaitForAgentExecExit(ctx, pid, 30*60)
+		status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 30*60)
 		fmt.Println("Exec setup script status", status)
 
+		if vmUserdata != "" {
+			content, err := os.ReadFile(vmUserdata)
+			if err != nil {
+				fmt.Println("Error reading userdata file", vmUserdata)
+				return
+			}
+			fmt.Println("Write userdata script")
+			err = vmChildV2.AgentFileWrite(ctx, constants.UserdataScriptPath, string(content))
+			if err != nil {
+				fmt.Println("Error when agent file write userdata script")
+				return
+			}
+
+			fmt.Println("Chmod userdata script")
+			pid, _ := vmChild.AgentExec(ctx, []string{"chmod", "+x", constants.UserdataScriptPath}, "")
+			status, _ := vmChildV2.WaitForAgentExecExit(ctx, pid, 5)
+			fmt.Println("Chmod userdata script status", status)
+
+			fmt.Println("Exec userdata script")
+			pid, _ = vmChild.AgentExec(ctx, []string{constants.UserdataScriptPath}, "")
+			status, _ = vmChildV2.WaitForAgentExecExit(ctx, pid, 30*60)
+			fmt.Println("Exec userdata script status", status)
+		}
+
+		kubeVmChild := &model.KubeVirtualMachine{
+			VirtualMachineV2: vmChildV2,
+			Api:              proxmoxClient,
+		}
 		fmt.Println("write containerd config")
-		vmChildV2.EnsureContainerdConfig(ctx)
+		kubeVmChild.EnsureContainerdConfig(ctx)
 
 		fmt.Println("Restart containerd")
-		vmChildV2.RestartContainerd(ctx)
+		kubeVmChild.RestartContainerd(ctx)
 
 		vmDad, err := pveNode.VirtualMachine(ctx, dadId)
 		if err != nil {
 			fmt.Println("Error when getting vm", dadId, err)
 			return
 		}
-		vmDadV2 := model.VirtualMachineV2{
-			V1:     vmDad,
-			Client: proxmoxClient,
+		vmDadV2 := &model.VirtualMachineV2{
+			VirtualMachine: vmDad,
+			Api:            proxmoxClient,
+		}
+		kubeVmDad := model.KubeVirtualMachine{
+			VirtualMachineV2: vmDadV2,
+			Api:              proxmoxClient,
 		}
 
 		fmt.Println("Create join command")
-		joinCmd, err := vmDadV2.CreateWorkerJoinCommand(ctx)
+		joinCmd, err := kubeVmDad.CreateWorkerJoinCommand(ctx)
 		fmt.Println(json.Marshal(joinCmd))
 		if err != nil {
 			// TODO
@@ -197,11 +242,13 @@ var createCmd = &cobra.Command{
 		if err != nil {
 			// TODO
 		}
-		status, err = vmChild.WaitForAgentExecExit(ctx, pid, 10*60)
-		fmt.Println("Exec join command status", status)
+		status, err = vmChildV2.WaitForAgentExecExit(ctx, pid, 10*60)
 		if err != nil {
 			// TODO
+			fmt.Println("Error when exec join command", err)
+			return
 		}
+		fmt.Println("Exec join command status", status)
 		if status.ExitCode != 0 {
 			// TODO
 		}
@@ -224,19 +271,13 @@ func init() {
 	createCmd.Flags().StringVar(&vmIp, "vm-ip", "", "VM IP address (required)")
 	createCmd.MarkFlagRequired("vm-ip")
 
-	createCmd.Flags().IntVar(&vmCores, "vm-cores", 4, "number of VM cores (default: 4)")
-
-	createCmd.Flags().IntVar(&vmMem, "vm-mem", 8192, "amount of VM memory in MB (default: 8192)")
-
-	createCmd.Flags().StringVar(&vmDiskSize, "vm-disk", "+32G", "size of the VM disk (default: +32G)")
-
 	createCmd.Flags().StringVar(&vmNamePrefix, "vm-name-prefix", "i-", "prefix for VM names (default: i-)")
-
+	createCmd.Flags().IntVar(&vmCores, "vm-cores", 4, "number of VM cores (default: 4)")
+	createCmd.Flags().IntVar(&vmMem, "vm-mem", 8192, "amount of VM memory in MB (default: 8192)")
+	createCmd.Flags().StringVar(&vmDiskSize, "vm-disk", "+30G", "size of the VM disk (default: +30G)")
 	createCmd.Flags().StringVar(&vmUsername, "vm-username", "u", "username for VM access (default: u)")
-
 	createCmd.Flags().StringVar(&vmPassword, "vm-password", "p", "password for VM access (default: p)")
-
-	createCmd.Flags().BoolVar(&vmStartOnBoot, "vm-start-on-boot", true, "start VM on boot (default: true)")
-
+	createCmd.Flags().StringVar(&vmAuthoriedKeysFile, "vm-authorized-keys-file", fmt.Sprintf("%s/.ssh/id_rsa.pub", os.Getenv("HOME")), "authorized keys file to write to VM (default: ~/.ssh/id_rsa.pub)")
 	createCmd.Flags().StringVar(&vmUserdata, "vm-userdata", "", "user data script for the VM (optional)")
+	createCmd.Flags().BoolVar(&vmStartOnBoot, "vm-start-on-boot", true, "start VM on boot (default: true)")
 }

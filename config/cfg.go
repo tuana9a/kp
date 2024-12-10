@@ -4,19 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-)
 
-const (
-	DefaultProxmoxPort      = 8006
-	DefaultProxmoxVerifySSL = false
-	DefaultVMNamePrefix     = "i-"
-)
-
-var (
-	DefaultVMIdRange      = []int{100, 999}
-	DefaultVMPreservedIDs = []int{}
-	DefaultVMPreservedIPs = []string{}
-	DefaultVMSshKeys      = ""
+	"github.com/tuana9a/kp/constants"
 )
 
 type Cfg struct {
@@ -36,7 +25,7 @@ type Cfg struct {
 	LogLevel          string   `json:"log_level,omitempty"`
 }
 
-func (c Cfg) String() string {
+func (c *Cfg) String() string {
 	var sb strings.Builder
 
 	sb.WriteString("Cfg {\n")
@@ -57,23 +46,23 @@ func (c Cfg) String() string {
 	return sb.String()
 }
 
-func NewCfg(in []byte) Cfg {
+func NewCfg(in []byte) *Cfg {
 	var cfg Cfg
 	err := json.Unmarshal(in, &cfg)
 	if err != nil {
 		panic(err)
 	}
 	if cfg.ProxmoxPort == 0 {
-		cfg.ProxmoxPort = DefaultProxmoxPort
+		cfg.ProxmoxPort = constants.DefaultProxmoxPort
 	}
 	if cfg.VMIdRange == nil {
-		cfg.VMIdRange = DefaultVMIdRange
+		cfg.VMIdRange = constants.DefaultVMIdRange
 	}
 	if cfg.VMPreservedIDs == nil {
-		cfg.VMPreservedIDs = DefaultVMPreservedIDs
+		cfg.VMPreservedIDs = constants.DefaultVMPreservedIDs
 	}
 	if cfg.VMPreservedIPs == nil {
-		cfg.VMPreservedIPs = DefaultVMPreservedIPs
+		cfg.VMPreservedIPs = constants.DefaultVMPreservedIPs
 	}
-	return cfg
+	return &cfg
 }
