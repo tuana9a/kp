@@ -13,7 +13,6 @@ import (
 
 type KubeVirtualMachine struct {
 	*VirtualMachineV2
-	ProxmoxClient *proxmox.Client
 }
 
 func (vm *KubeVirtualMachine) EnsureContainerdConfig(ctx context.Context) error {

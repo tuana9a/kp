@@ -49,7 +49,6 @@ var deleteCmd = &cobra.Command{
 				VirtualMachine: vmDad,
 				ProxmoxClient:  proxmoxClient,
 			},
-			ProxmoxClient: proxmoxClient,
 		}
 
 		fmt.Println("Drain node", vmChild.Name)

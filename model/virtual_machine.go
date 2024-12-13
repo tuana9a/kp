@@ -9,6 +9,7 @@ import (
 
 	"github.com/luthermonson/go-proxmox"
 	"github.com/tuana9a/kp/constants"
+	"github.com/tuana9a/kp/payload"
 )
 
 type VirtualMachineV2 struct {
@@ -54,7 +55,10 @@ func (vm *VirtualMachineV2) AgentFileWrite(ctx context.Context, location string,
 	return err
 }
 
-func (vm *VirtualMachineV2) AgentFileRead(ctx context.Context, location string, content *string) error {
-	err := vm.ProxmoxClient.Get(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/file-read?file=%s", vm.Node, vm.VMID, location), &content)
-	return err
+func (vm *VirtualMachineV2) AgentFileRead(ctx context.Context, location string, response *payload.AgentFileRead) error {
+	err := vm.ProxmoxClient.Get(ctx, fmt.Sprintf("/nodes/%s/qemu/%d/agent/file-read?file=%s", vm.Node, vm.VMID, location), &response)
+	if err != nil {
+		return err
+	}
+	return nil
 }

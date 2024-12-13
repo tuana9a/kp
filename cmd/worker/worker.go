@@ -17,14 +17,11 @@ var vmUsername string
 var vmPassword string
 var vmStartOnBoot bool
 var vmUserdata string
-var vmAuthoriedKeysFile = "~/.ssh/id_rsa.pub"
+var vmAuthoriedKeysFile string
 
 var WorkerCmd = &cobra.Command{
 	Use:     "worker",
 	Aliases: []string{"wk"},
-	Run: func(cmd *cobra.Command, args []string) {
-		// Do Stuff Here
-	},
 }
 
 var upgradeCmd = &cobra.Command{

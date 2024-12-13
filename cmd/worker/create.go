@@ -69,7 +69,6 @@ var createCmd = &cobra.Command{
 				VirtualMachine: vmChild,
 				ProxmoxClient:  proxmoxClient,
 			},
-			ProxmoxClient: proxmoxClient,
 		}
 
 		err = kubeVmChild.ResizeDisk(ctx, "scsi0", vmDiskSize)
@@ -225,7 +224,6 @@ var createCmd = &cobra.Command{
 				VirtualMachine: vmDad,
 				ProxmoxClient:  proxmoxClient,
 			},
-			ProxmoxClient: proxmoxClient,
 		}
 
 		fmt.Println("Create join command")

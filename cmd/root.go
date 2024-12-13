@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/tuana9a/kp/cmd/plane"
+	"github.com/tuana9a/kp/cmd/vm"
 	"github.com/tuana9a/kp/cmd/worker"
 )
 
@@ -29,6 +31,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().StringVarP(&Config, "config", "c", defaultConfigLocation, "verbose output")
 	rootCmd.AddCommand(worker.WorkerCmd)
+	rootCmd.AddCommand(vm.VirtualMachineCmd)
+	rootCmd.AddCommand(plane.ControlPlaneCmd)
 }
 
 func Execute() {
