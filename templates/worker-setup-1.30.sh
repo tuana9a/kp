@@ -2,8 +2,8 @@
 
 set -e
 
-wget -q https://github.com/containerd/containerd/releases/download/v1.6.33/containerd-1.6.33-linux-amd64.tar.gz -O /opt/containerd-1.6.33-linux-amd64.tar.gz
-tar Cxzvf /usr/local /opt/containerd-1.6.33-linux-amd64.tar.gz
+wget -q https://github.com/containerd/containerd/releases/download/v1.7.24/containerd-1.7.24-linux-amd64.tar.gz -O /opt/containerd-1.7.24-linux-amd64.tar.gz
+tar Cxzvf /usr/local /opt/containerd-1.7.24-linux-amd64.tar.gz
 
 wget -q https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -O /lib/systemd/system/containerd.service
 systemctl daemon-reload

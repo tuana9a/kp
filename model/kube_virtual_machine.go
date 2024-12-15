@@ -1,31 +1,21 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
+	"text/template"
 
 	"github.com/luthermonson/go-proxmox"
 	"github.com/tuana9a/kp/config"
 	"github.com/tuana9a/kp/constants"
+	"github.com/tuana9a/kp/payload"
 	"github.com/tuana9a/kp/templates"
 )
 
 type KubeVirtualMachine struct {
 	*VirtualMachineV2
-}
-
-func (vm *KubeVirtualMachine) EnsureContainerdConfig(ctx context.Context) error {
-	pid, _ := vm.AgentExec(ctx, []string{"mkdir", "-p", "/etc/containerd"}, "")
-	status, err := vm.WaitForAgentExecExit(ctx, pid, 5)
-	if err != nil {
-		return err
-	}
-	if status.ExitCode != 0 {
-		// TODO
-	}
-	vm.AgentFileWrite(ctx, constants.ContainerdConfigPath, templates.ContainerdConfig)
-	return nil
 }
 
 func (vm *KubeVirtualMachine) RestartContainerd(ctx context.Context) error {
@@ -90,4 +80,53 @@ func (vm *KubeVirtualMachine) DeleteNode(ctx context.Context, nodeName string) (
 		// TODO
 	}
 	return status, nil
+}
+
+func (vm *KubeVirtualMachine) EnsureCertDirs(ctx context.Context) error {
+	pid, err := vm.AgentExec(ctx, append([]string{"mkdir", "-p"}, constants.KubeCertDirs...), "")
+	if err != nil {
+		return err
+	}
+	status, err := vm.WaitForAgentExecExit(ctx, pid, 10)
+	if err != nil {
+		return err
+	}
+	fmt.Println(status.ExitCode)
+	return nil
+}
+
+func (vm *KubeVirtualMachine) CopyKubeCerts(ctx context.Context, childVm *KubeVirtualMachine) {
+	for _, filepath := range constants.KubeCertPaths {
+		vm.CopyFileToVm(ctx, childVm, filepath)
+	}
+}
+
+func (vm *KubeVirtualMachine) InstallKubevip(ctx context.Context, inf string, vip string) error {
+	tmpl, err := template.New("kubevip").Parse(templates.KubevipTemplate)
+	if err != nil {
+		return err
+	}
+	var output bytes.Buffer
+	err = tmpl.Execute(&output, payload.InstallKubevip{Inf: inf, VIP: vip})
+	if err != nil {
+		fmt.Println("Error", err)
+		return err
+	}
+	content := output.String()
+	vm.AgentFileWrite(ctx, constants.KubevipYamlPath, content)
+	return nil
+}
+
+func (vm *KubeVirtualMachine) KubeadmReset(ctx context.Context) error {
+	pid, err := vm.AgentExec(ctx, []string{"kubeadm", "reset", "-f"}, "")
+	if err != nil {
+		return err
+	}
+	status, err := vm.WaitForAgentExecExit(ctx, pid, 15*60)
+	if err != nil {
+		return err
+	}
+	fmt.Println(status.OutData)
+	fmt.Println(status.ErrData)
+	return nil
 }

@@ -24,23 +24,6 @@ var WorkerCmd = &cobra.Command{
 	Aliases: []string{"wk"},
 }
 
-var upgradeCmd = &cobra.Command{
-	Use: "upgrade",
-	Run: func(cmd *cobra.Command, args []string) {
-
-	},
-}
-
-var joinCmd = &cobra.Command{
-	Use: "join",
-	Run: func(cmd *cobra.Command, args []string) {
-
-	},
-}
-
 func init() {
-	WorkerCmd.AddCommand(createCmd)
-	WorkerCmd.AddCommand(deleteCmd)
-	WorkerCmd.AddCommand(upgradeCmd)
 	WorkerCmd.AddCommand(joinCmd)
 }

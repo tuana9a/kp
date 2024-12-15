@@ -4,7 +4,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tuana9a/kp/cmd/plane/apiserver"
+	"github.com/tuana9a/kp/cmd/plane/kubevip"
 )
+
+var dadId int
+var childId int
+var timeoutSeconds int
 
 var ControlPlaneCmd = &cobra.Command{
 	Use:     "control-plane",
@@ -13,4 +18,8 @@ var ControlPlaneCmd = &cobra.Command{
 
 func init() {
 	ControlPlaneCmd.AddCommand(apiserver.ApiServerCmd)
+	ControlPlaneCmd.AddCommand(kubevip.KubevipCmd)
+	ControlPlaneCmd.AddCommand(drainNodeCmd)
+	ControlPlaneCmd.AddCommand(deleteNodeCmd)
+	ControlPlaneCmd.AddCommand(joinCmd)
 }
