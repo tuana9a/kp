@@ -8,10 +8,10 @@ import (
 	"text/template"
 
 	"github.com/luthermonson/go-proxmox"
-	"github.com/tuana9a/kp/config"
-	"github.com/tuana9a/kp/constants"
-	"github.com/tuana9a/kp/payload"
-	"github.com/tuana9a/kp/templates"
+	"github.com/tuana9a/kp/kp/config"
+	"github.com/tuana9a/kp/kp/constants"
+	"github.com/tuana9a/kp/kp/payload"
+	"github.com/tuana9a/kp/kp/templates"
 )
 
 type KubeVirtualMachine struct {

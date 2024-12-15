@@ -3,8 +3,8 @@ package plane
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/tuana9a/kp/cmd/plane/apiserver"
-	"github.com/tuana9a/kp/cmd/plane/kubevip"
+	"github.com/tuana9a/kp/kp/cmd/plane/apiserver"
+	"github.com/tuana9a/kp/kp/cmd/plane/kubevip"
 )
 
 var dadId int

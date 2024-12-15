@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/luthermonson/go-proxmox"
-	"github.com/tuana9a/kp/constants"
-	"github.com/tuana9a/kp/payload"
+	"github.com/tuana9a/kp/kp/constants"
+	"github.com/tuana9a/kp/kp/payload"
 )
 
 type IVirtualMachineV2 interface {

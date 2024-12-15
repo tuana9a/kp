@@ -7,7 +7,7 @@ import (
 
 	"github.com/luthermonson/go-proxmox"
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/util"
 )
 
 var updateConfigCmd = &cobra.Command{

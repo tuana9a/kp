@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/util"
 )
 
-var waitAgentCmd = &cobra.Command{
-	Use: "wait-agent",
+var resizeDiskCmd = &cobra.Command{
+	Use: "resize-disk",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -36,15 +36,17 @@ var waitAgentCmd = &cobra.Command{
 			panic(err)
 		}
 
-		err = vm.WaitForAgent(ctx, timeoutSeconds)
+		err = vm.ResizeDisk(ctx, "scsi0", vmResizeDisk)
 		if err != nil {
-			fmt.Println("ERROR wait for agent", err)
+			fmt.Println("Error when resize disk child vm", vmid, err)
+			return
 		}
 	},
 }
 
 func init() {
-	waitAgentCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
-	waitAgentCmd.MarkFlagRequired("vmid")
-	waitAgentCmd.Flags().IntVar(&timeoutSeconds, "timeout", 15*60, "")
+	resizeDiskCmd.Flags().IntVar(&vmid, "vmid", 0, "")
+	resizeDiskCmd.MarkFlagRequired("vmid")
+	resizeDiskCmd.Flags().StringVar(&vmResizeDisk, "vm-resize-disk", "", "") // TODO: check regex
+	resizeDiskCmd.MarkFlagRequired("vm-resize-disk")
 }

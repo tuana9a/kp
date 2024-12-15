@@ -7,10 +7,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/constants"
-	"github.com/tuana9a/kp/model"
-	"github.com/tuana9a/kp/payload"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/constants"
+	"github.com/tuana9a/kp/kp/model"
+	"github.com/tuana9a/kp/kp/payload"
+	"github.com/tuana9a/kp/kp/util"
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 )

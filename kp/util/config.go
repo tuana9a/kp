@@ -3,7 +3,7 @@ package util
 import (
 	"os"
 
-	"github.com/tuana9a/kp/config"
+	"github.com/tuana9a/kp/kp/config"
 )
 
 func LoadConfig(configPath string) *config.Cfg {

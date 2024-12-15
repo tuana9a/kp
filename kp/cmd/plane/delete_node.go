@@ -5,13 +5,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/model"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/model"
+	"github.com/tuana9a/kp/kp/util"
 )
 
-var drainNodeCmd = &cobra.Command{
-	Use:     "drain-node",
-	Aliases: []string{"drain"},
+var deleteNodeCmd = &cobra.Command{
+	Use: "delete-node",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
@@ -49,21 +48,21 @@ var drainNodeCmd = &cobra.Command{
 			VirtualMachineV2: vmDadV2,
 		}
 
-		fmt.Println("Drain node", vmChild.Name)
-		status, err := kubeVmDad.DrainNode(ctx, vmChild.Name)
+		fmt.Println("Delete node", vmChild.Name)
+		status, err := kubeVmDad.DeleteNode(ctx, vmChild.Name)
 		if err != nil {
-			fmt.Println("Error when draing node", vmChild.Name, err)
+			fmt.Println("Error when delete node", vmChild.Name, err)
 			return
 		}
-		fmt.Println("Drain node", vmChild.Name, "output")
+		fmt.Println("Delete node", vmChild.Name, "output")
 		fmt.Println(status.OutData)
 	},
 }
 
 func init() {
-	drainNodeCmd.Flags().IntVar(&dadId, "dad-id", 0, "dad id or control plane id (required)")
-	drainNodeCmd.MarkFlagRequired("dad-id")
+	deleteNodeCmd.Flags().IntVar(&dadId, "dad-id", 0, "dad id or control plane id (required)")
+	deleteNodeCmd.MarkFlagRequired("dad-id")
 
-	drainNodeCmd.Flags().IntVar(&childId, "child-id", 0, "child id or node id (required)")
-	drainNodeCmd.MarkFlagRequired("child-id")
+	deleteNodeCmd.Flags().IntVar(&childId, "child-id", 0, "child id or node id (required)")
+	deleteNodeCmd.MarkFlagRequired("child-id")
 }

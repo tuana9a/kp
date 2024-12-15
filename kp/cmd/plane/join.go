@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/model"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/model"
+	"github.com/tuana9a/kp/kp/util"
 )
 
 var joinCmd = &cobra.Command{

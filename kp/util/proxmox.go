@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/luthermonson/go-proxmox"
-	"github.com/tuana9a/kp/config"
+	"github.com/tuana9a/kp/kp/config"
 )
 
 func CreateProxmoxClient(cfg *config.Cfg) (*proxmox.Client, error) {

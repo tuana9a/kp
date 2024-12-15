@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/model"
+	"github.com/tuana9a/kp/kp/util"
 )
 
-var deleteCmd = &cobra.Command{
-	Use:     "delete",
-	Aliases: []string{"del", "remove", "rm"},
+var waitCloudinitCmd = &cobra.Command{
+	Use: "wait-cloudinit",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -36,20 +36,18 @@ var deleteCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
+		vmV2 := model.VirtualMachineV2{
+			VirtualMachine: vm,
+		}
 
-		task, err := vm.Delete(ctx)
+		err = vmV2.WaitForCloudInit(ctx)
 		if err != nil {
-			panic(err)
+			fmt.Println("ERROR wait for cloud-init", err)
 		}
-		status, completed, err := task.WaitForCompleteStatus(ctx, 15*60)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println("delete vm", vmid, "completed", completed, "status", status)
 	},
 }
 
 func init() {
-	deleteCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
-	deleteCmd.MarkFlagRequired("vmid")
+	waitCloudinitCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	waitCloudinitCmd.MarkFlagRequired("vmid")
 }

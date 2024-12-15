@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tuana9a/kp/constants"
+	"github.com/tuana9a/kp/kp/constants"
 )
 
 type Cfg struct {

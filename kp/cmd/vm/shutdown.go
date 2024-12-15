@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/util"
 )
 
-var resizeDiskCmd = &cobra.Command{
-	Use: "resize-disk",
+var shutdownCmd = &cobra.Command{
+	Use: "shutdown",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -36,17 +36,19 @@ var resizeDiskCmd = &cobra.Command{
 			panic(err)
 		}
 
-		err = vm.ResizeDisk(ctx, "scsi0", vmResizeDisk)
+		task, err := vm.Shutdown(ctx)
 		if err != nil {
-			fmt.Println("Error when resize disk child vm", vmid, err)
-			return
+			panic(err)
 		}
+		status, completed, err := task.WaitForCompleteStatus(ctx, 15*60)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("shutdown vm", vmid, "completed", completed, "status", status)
 	},
 }
 
 func init() {
-	resizeDiskCmd.Flags().IntVar(&vmid, "vmid", 0, "")
-	resizeDiskCmd.MarkFlagRequired("vmid")
-	resizeDiskCmd.Flags().StringVar(&vmResizeDisk, "vm-resize-disk", "", "") // TODO: check regex
-	resizeDiskCmd.MarkFlagRequired("vm-resize-disk")
+	shutdownCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	shutdownCmd.MarkFlagRequired("vmid")
 }

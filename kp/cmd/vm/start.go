@@ -1,16 +1,15 @@
-package kubevip
+package vm
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/model"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/util"
 )
 
-var installCmd = &cobra.Command{
-	Use: "install",
+var startCmd = &cobra.Command{
+	Use: "start",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -34,27 +33,22 @@ var installCmd = &cobra.Command{
 
 		vm, err := pveNode.VirtualMachine(ctx, vmid)
 		if err != nil {
-			fmt.Println("Error when getting vm", vmid, err)
-			return
+			panic(err)
 		}
-		vmV2 := &model.VirtualMachineV2{
-			VirtualMachine: vm,
-			ProxmoxClient:  proxmoxClient,
+
+		task, err := vm.Start(ctx)
+		if err != nil {
+			panic(err)
 		}
-		kubeVm := model.KubeVirtualMachine{
-			VirtualMachineV2: vmV2,
+		status, completed, err := task.WaitForCompleteStatus(ctx, 15*60)
+		if err != nil {
+			panic(err)
 		}
-		kubeVm.InstallKubevip(ctx, inf, vip)
+		fmt.Println("start vm", vmid, "completed", completed, "status", status)
 	},
 }
 
 func init() {
-	installCmd.Flags().IntVar(&vmid, "vmid", 0, "dad id or control plane id (required)")
-	installCmd.MarkFlagRequired("vmid")
-
-	installCmd.Flags().StringVar(&inf, "inf", "", "child id or node id (required)")
-	installCmd.MarkFlagRequired("inf")
-
-	installCmd.Flags().StringVar(&vip, "vip", "", "child id or node id (required)")
-	installCmd.MarkFlagRequired("vip")
+	startCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	startCmd.MarkFlagRequired("vmid")
 }

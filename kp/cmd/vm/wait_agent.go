@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/util"
+	"github.com/tuana9a/kp/kp/util"
 )
 
-var shutdownCmd = &cobra.Command{
-	Use: "shutdown",
+var waitAgentCmd = &cobra.Command{
+	Use: "wait-agent",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -36,19 +36,15 @@ var shutdownCmd = &cobra.Command{
 			panic(err)
 		}
 
-		task, err := vm.Shutdown(ctx)
+		err = vm.WaitForAgent(ctx, timeoutSeconds)
 		if err != nil {
-			panic(err)
+			fmt.Println("ERROR wait for agent", err)
 		}
-		status, completed, err := task.WaitForCompleteStatus(ctx, 15*60)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println("shutdown vm", vmid, "completed", completed, "status", status)
 	},
 }
 
 func init() {
-	shutdownCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
-	shutdownCmd.MarkFlagRequired("vmid")
+	waitAgentCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	waitAgentCmd.MarkFlagRequired("vmid")
+	waitAgentCmd.Flags().IntVar(&timeoutSeconds, "timeout", 15*60, "")
 }

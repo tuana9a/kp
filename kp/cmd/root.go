@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/cmd/kubevm"
-	"github.com/tuana9a/kp/cmd/plane"
-	"github.com/tuana9a/kp/cmd/vm"
-	"github.com/tuana9a/kp/cmd/worker"
+	"github.com/tuana9a/kp/kp/cmd/kubevm"
+	"github.com/tuana9a/kp/kp/cmd/plane"
+	"github.com/tuana9a/kp/kp/cmd/vm"
+	"github.com/tuana9a/kp/kp/cmd/worker"
 )
 
 var verbose bool
