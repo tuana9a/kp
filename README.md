@@ -2,6 +2,24 @@
 
 a kubernetes proxmox cli
 
+## Table of Contents
+
+- [kp](#kp)
+  - [Table of Contents](#table-of-contents)
+- [Prepare the network for vm](#prepare-the-network-for-vm)
+- [Prefare vm template](#prefare-vm-template)
+- [Prepare the config.json](#prepare-the-configjson)
+- [How to use](#how-to-use)
+- [Example](#example)
+  - [Creating control plane](#creating-control-plane)
+  - [Removing control plane](#removing-control-plane)
+- [Life saving tips](#life-saving-tips)
+  - [Randomly and continuously etcdserver switch leader, kubectl randomly failed also, so frustrating](#randomly-and-continuously-etcdserver-switch-leader-kubectl-randomly-failed-also-so-frustrating)
+  - [Recovering your cluster when no hope left](#recovering-your-cluster-when-no-hope-left)
+  - [etcdserver timeout](#etcdserver-timeout)
+- [Decision / Choise / Explain](#decision--choise--explain)
+  - [Immutable infrastructure](#immutable-infrastructure)
+
 # Prepare the network for vm
 
 ssh into the proxmox host
@@ -93,6 +111,43 @@ to see tree of command
 kp tree
 ```
 
+# Example
+
+## Creating control plane
+
+```bash
+template_id=1001
+dad_id=122
+child_id=123
+vm_net=vmbr56
+vm_ip='192.168.56.23/24'
+vm_gateway_ip='192.168.56.1'
+vm_cores=2
+vm_mem=4096
+go run . vm clone --template-id $template_id --vmid $child_id
+go run . vm resize-disk --vmid $child_id --resize +18G
+go run . vm update-config --vmid $child_id --vm-net $vm_net --vm-ip $vm_ip --vm-gateway-ip $vm_gateway_ip --vm-cores $vm_cores --vm-mem $vm_mem --vm-start-on-boot
+go run . vm start --vmid $child_id
+go run . vm wait-agent --vmid $child_id
+go run . vm wait-cloudinit --vmid $child_id
+go run . vm inject-authorized-keys --vmid $child_id
+go run . vm run-userdata --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
+go run . plane join --dad-id $dad_id --child-id $child_id
+```
+
+## Removing control plane
+
+```bash
+dad_id=122
+child_id=124
+go run . plane drain --dad-id $dad_id --child-id $child_id
+go run . plane delete-node --dad-id $dad_id --child-id $child_id
+go run . kubevm reset --vmid $child_id
+go run . plane etcd remove-member --dad-id $dad_id --child-id $child_id
+go run . vm shutdown --vmid $child_id
+go run . vm delete --vmid $child_id
+```
+
 # Life saving tips
 
 This is my experience to fix it, not a must to do but if you're running out of idea, try it
@@ -126,8 +181,10 @@ ETCDCTL_KEY=/etc/kubernetes/pki/apiserver-etcd-client.key
 ETCDCTL_OPTS="--cacert=$ETCDCTL_CACERT --cert=$ETCDCTL_CERT --key=$ETCDCTL_KEY"
 
 # check status
-ETCDCTL_API=3 etcdctl member list -w table $ETCDCTL_OPTS
-ETCDCTL_API=3 etcdctl endpoint status --cluster -w table $ETCDCTL_OPTS
+ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list
+ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list -w table
+ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list -w json
+ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS endpoint status --cluster -w table
 
 # backup certs
 rm -r /root/pki
