@@ -132,7 +132,7 @@ func (vm *KubeVirtualMachine) KubeadmReset(ctx context.Context) error {
 	return nil
 }
 
-func (vm *KubeVirtualMachine) EtcdctlMemberList(ctx context.Context) (*payload.EtcdMemberListOut, error) {
+func (vm *KubeVirtualMachine) ListEtcdMembers(ctx context.Context) (*payload.EtcdMemberListOut, error) {
 	opts := []string{"--cacert=/etc/kubernetes/pki/etcd/ca.crt",
 		"--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
 		"--key=/etc/kubernetes/pki/apiserver-etcd-client.key"}

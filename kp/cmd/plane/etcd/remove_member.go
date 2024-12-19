@@ -46,11 +46,16 @@ var removeMemberCmd = &cobra.Command{
 			VirtualMachineV2: vmV2,
 		}
 
-		command := []string{"/usr/local/bin/etcdctl",
+		command := []string{
+			"/usr/local/bin/etcdctl",
 			"--cacert=/etc/kubernetes/pki/etcd/ca.crt",
 			"--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
 			"--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
-			"member", "list", "-w", "json"}
+			"member",
+			"list",
+			"-w",
+			"json",
+		}
 
 		fmt.Println("exec", vm.Name, command)
 		pid, err := kubeVm.AgentExec(ctx, command, "")
@@ -82,11 +87,15 @@ var removeMemberCmd = &cobra.Command{
 			if m.Name == memberName {
 				memberId := strconv.FormatUint(m.ID, 16)
 				fmt.Println("Found", memberName, memberId)
-				command := []string{"/usr/local/bin/etcdctl",
+				command := []string{
+					"/usr/local/bin/etcdctl",
 					"--cacert=/etc/kubernetes/pki/etcd/ca.crt",
 					"--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
 					"--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
-					"member", "remove", memberId}
+					"member",
+					"remove",
+					memberId,
+				}
 				fmt.Println("exec", vm.Name, command)
 				pid, err := kubeVm.AgentExec(ctx, command, "")
 				if err != nil {
