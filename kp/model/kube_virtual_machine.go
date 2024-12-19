@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"text/template"
@@ -129,4 +130,26 @@ func (vm *KubeVirtualMachine) KubeadmReset(ctx context.Context) error {
 	fmt.Println(status.OutData)
 	fmt.Println(status.ErrData)
 	return nil
+}
+
+func (vm *KubeVirtualMachine) EtcdctlMemberList(ctx context.Context) (*payload.EtcdMemberListOut, error) {
+	opts := []string{"--cacert=/etc/kubernetes/pki/etcd/ca.crt",
+		"--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
+		"--key=/etc/kubernetes/pki/apiserver-etcd-client.key"}
+	pid, err := vm.AgentExec(ctx, append([]string{"/usr/local/bin/etcdctl", "member", "list", "-w", "json"}, opts...), "")
+	if err != nil {
+		return nil, err
+	}
+	status, err := vm.WaitForAgentExecExit(ctx, pid, 60)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(status.OutData)
+	fmt.Println(status.ErrData)
+	var out *payload.EtcdMemberListOut
+	err = json.Unmarshal([]byte(status.OutData), out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }

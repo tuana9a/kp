@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tuana9a/kp/kp/cmd/plane/apiserver"
+	"github.com/tuana9a/kp/kp/cmd/plane/etcd"
 	"github.com/tuana9a/kp/kp/cmd/plane/kubevip"
 )
 
@@ -22,4 +23,5 @@ func init() {
 	ControlPlaneCmd.AddCommand(drainNodeCmd)
 	ControlPlaneCmd.AddCommand(deleteNodeCmd)
 	ControlPlaneCmd.AddCommand(joinCmd)
+	ControlPlaneCmd.AddCommand(etcd.EtcdCmd)
 }
