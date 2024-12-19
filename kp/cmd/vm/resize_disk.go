@@ -47,6 +47,6 @@ var resizeDiskCmd = &cobra.Command{
 func init() {
 	resizeDiskCmd.Flags().IntVar(&vmid, "vmid", 0, "")
 	resizeDiskCmd.MarkFlagRequired("vmid")
-	resizeDiskCmd.Flags().StringVar(&vmResizeDisk, "vm-resize-disk", "", "") // TODO: check regex
-	resizeDiskCmd.MarkFlagRequired("vm-resize-disk")
+	resizeDiskCmd.Flags().StringVar(&vmResizeDisk, "resize", "", "") // TODO: check regex
+	resizeDiskCmd.MarkFlagRequired("resize")
 }
