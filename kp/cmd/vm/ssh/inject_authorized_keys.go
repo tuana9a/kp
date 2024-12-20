@@ -73,5 +73,6 @@ var injectAuthorizedKeysCmd = &cobra.Command{
 func init() {
 	injectAuthorizedKeysCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
 	injectAuthorizedKeysCmd.MarkFlagRequired("vmid")
+	injectAuthorizedKeysCmd.Flags().StringVar(&vmUsername, "vm-username", "u", "vm-username (required)")
 	injectAuthorizedKeysCmd.Flags().StringVar(&vmAuthoriedKeysFile, "vm-authorized-keys-file", fmt.Sprintf("%s/.ssh/id_rsa.pub", os.Getenv("HOME")), "authorized keys file to write to VM (default: ~/.ssh/id_rsa.pub)")
 }

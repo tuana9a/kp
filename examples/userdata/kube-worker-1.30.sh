@@ -57,6 +57,9 @@ EOF
 # Apply sysctl params without reboot
 sysctl --system
 
+# K8S Prerequisite
+apt install -y gnupg2
+
 # Add the repository for K8S
 kubernetes_version="1.30"
 install -m 0755 -d /etc/apt/keyrings

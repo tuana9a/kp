@@ -9,7 +9,7 @@ import (
 )
 
 var waitCmd = &cobra.Command{
-	Use: "wait-agent",
+	Use: "wait",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
