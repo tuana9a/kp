@@ -1,4 +1,4 @@
-package vm
+package config
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"github.com/tuana9a/kp/kp/util"
 )
 
-var updateConfigCmd = &cobra.Command{
-	Use: "update-config",
+var updateCmd = &cobra.Command{
+	Use: "update",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -94,16 +94,16 @@ var updateConfigCmd = &cobra.Command{
 }
 
 func init() {
-	updateConfigCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
-	updateConfigCmd.Flags().StringVar(&vmNet, "vm-net", "", "VM network (required)")
-	updateConfigCmd.Flags().StringVar(&vmIp, "vm-ip", "", "ex: 192.168.56.22/24 (required)")
-	updateConfigCmd.Flags().StringVar(&vmGatewayIp, "vm-gateway-ip", "", "VM network gateway ip(required)")
-	updateConfigCmd.MarkFlagsRequiredTogether("vm-net", "vm-ip", "vm-gateway-ip")
-	updateConfigCmd.Flags().StringVar(&vmNamePrefix, "vm-name-prefix", "i-", "prefix for VM names (default: i-)")
-	updateConfigCmd.Flags().IntVar(&vmCores, "vm-cores", 0, "number of VM cores (default: 2)")
-	updateConfigCmd.Flags().IntVar(&vmMem, "vm-mem", 0, "amount of VM memory in MB (default: 4096)")
-	updateConfigCmd.Flags().BoolVar(&vmMemBallooned, "vm-mem-balloon", false, "")
-	updateConfigCmd.Flags().StringVar(&vmUsername, "vm-username", "u", "username for VM access (default: u)")
-	updateConfigCmd.Flags().StringVar(&vmPassword, "vm-password", "p", "password for VM access (default: p)")
-	updateConfigCmd.Flags().BoolVar(&vmStartOnBoot, "vm-start-on-boot", false, "start VM on boot (default: false)")
+	updateCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	updateCmd.Flags().StringVar(&vmNet, "vm-net", "", "VM network (required)")
+	updateCmd.Flags().StringVar(&vmIp, "vm-ip", "", "ex: 192.168.56.22/24 (required)")
+	updateCmd.Flags().StringVar(&vmGatewayIp, "vm-gateway-ip", "", "VM network gateway ip(required)")
+	updateCmd.MarkFlagsRequiredTogether("vm-net", "vm-ip", "vm-gateway-ip")
+	updateCmd.Flags().StringVar(&vmNamePrefix, "vm-name-prefix", "i-", "prefix for VM names (default: i-)")
+	updateCmd.Flags().IntVar(&vmCores, "vm-cores", 0, "number of VM cores (default: 2)")
+	updateCmd.Flags().IntVar(&vmMem, "vm-mem", 0, "amount of VM memory in MB (default: 4096)")
+	updateCmd.Flags().BoolVar(&vmMemBallooned, "vm-mem-balloon", false, "")
+	updateCmd.Flags().StringVar(&vmUsername, "vm-username", "u", "username for VM access (default: u)")
+	updateCmd.Flags().StringVar(&vmPassword, "vm-password", "p", "password for VM access (default: p)")
+	updateCmd.Flags().BoolVar(&vmStartOnBoot, "vm-start-on-boot", false, "start VM on boot (default: false)")
 }

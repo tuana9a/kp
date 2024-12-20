@@ -1,16 +1,15 @@
-package vm
+package agent
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/kp/model"
 	"github.com/tuana9a/kp/kp/util"
 )
 
-var waitCloudinitCmd = &cobra.Command{
-	Use: "wait-cloudinit",
+var waitCmd = &cobra.Command{
+	Use: "wait-agent",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -36,18 +35,16 @@ var waitCloudinitCmd = &cobra.Command{
 		if err != nil {
 			panic(err)
 		}
-		vmV2 := model.VirtualMachineV2{
-			VirtualMachine: vm,
-		}
 
-		err = vmV2.WaitForCloudInit(ctx)
+		err = vm.WaitForAgent(ctx, timeoutSeconds)
 		if err != nil {
-			fmt.Println("ERROR wait for cloud-init", err)
+			fmt.Println("ERROR wait for agent", err)
 		}
 	},
 }
 
 func init() {
-	waitCloudinitCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
-	waitCloudinitCmd.MarkFlagRequired("vmid")
+	waitCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	waitCmd.MarkFlagRequired("vmid")
+	waitCmd.Flags().IntVar(&timeoutSeconds, "timeout", 15*60, "")
 }

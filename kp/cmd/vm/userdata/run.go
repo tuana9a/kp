@@ -1,4 +1,4 @@
-package vm
+package userdata
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"github.com/tuana9a/kp/kp/util"
 )
 
-var runUserdataCmd = &cobra.Command{
-	Use: "run-userdata",
+var runCmd = &cobra.Command{
+	Use: "run",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -81,9 +81,9 @@ var runUserdataCmd = &cobra.Command{
 }
 
 func init() {
-	runUserdataCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
-	runUserdataCmd.MarkFlagRequired("vmid")
-	runUserdataCmd.Flags().StringVar(&vmUserdata, "vm-userdata", "", "user data script for the VM (optional)")
-	runUserdataCmd.MarkFlagRequired("vm-userdata")
-	runUserdataCmd.Flags().IntVar(&timeoutSeconds, "timeout", 30*60, "")
+	runCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	runCmd.MarkFlagRequired("vmid")
+	runCmd.Flags().StringVar(&vmUserdata, "vm-userdata", "", "user data script for the VM (optional)")
+	runCmd.MarkFlagRequired("vm-userdata")
+	runCmd.Flags().IntVar(&timeoutSeconds, "timeout", 30*60, "")
 }

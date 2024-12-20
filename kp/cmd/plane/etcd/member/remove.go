@@ -1,4 +1,4 @@
-package etcd
+package member
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"github.com/tuana9a/kp/kp/util"
 )
 
-var removeMemberCmd = &cobra.Command{
-	Use:     "remove-member",
-	Aliases: []string{"rm-member"},
+var removeCmd = &cobra.Command{
+	Use:     "remove",
+	Aliases: []string{"rm"},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
@@ -120,9 +120,9 @@ var removeMemberCmd = &cobra.Command{
 }
 
 func init() {
-	removeMemberCmd.Flags().IntVar(&dadId, "dad-id", 0, "")
-	removeMemberCmd.MarkFlagRequired("dad-id")
-	removeMemberCmd.Flags().IntVar(&childId, "child-id", 0, "")
-	removeMemberCmd.MarkFlagRequired("child-id")
-	removeMemberCmd.Flags().StringVar(&vmNamePrefix, "vm-name-prefix", "i-", "prefix for VM names (default: i-)")
+	removeCmd.Flags().IntVar(&dadId, "dad-id", 0, "")
+	removeCmd.MarkFlagRequired("dad-id")
+	removeCmd.Flags().IntVar(&childId, "child-id", 0, "")
+	removeCmd.MarkFlagRequired("child-id")
+	removeCmd.Flags().StringVar(&vmNamePrefix, "vm-name-prefix", "i-", "prefix for VM names (default: i-)")
 }

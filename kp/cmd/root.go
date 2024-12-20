@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/tuana9a/kp/kp/cmd/kubevm"
 	"github.com/tuana9a/kp/kp/cmd/plane"
 	"github.com/tuana9a/kp/kp/cmd/vm"
 	"github.com/tuana9a/kp/kp/cmd/worker"
@@ -34,7 +33,6 @@ func init() {
 	rootCmd.AddCommand(worker.WorkerCmd)
 	rootCmd.AddCommand(vm.VirtualMachineCmd)
 	rootCmd.AddCommand(plane.ControlPlaneCmd)
-	rootCmd.AddCommand(kubevm.KubevmCmd)
 }
 
 func Execute() {

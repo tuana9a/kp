@@ -1,4 +1,4 @@
-package etcd
+package member
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 	"github.com/tuana9a/kp/kp/util"
 )
 
-var listMembersCmd = &cobra.Command{
-	Use:     "list-members",
-	Aliases: []string{"ls-members"},
+var listCmd = &cobra.Command{
+	Use:     "list",
+	Aliases: []string{"ls"},
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
@@ -74,6 +74,6 @@ var listMembersCmd = &cobra.Command{
 }
 
 func init() {
-	listMembersCmd.Flags().IntVar(&vmid, "vmid", 0, "")
-	listMembersCmd.MarkFlagRequired("vmid")
+	listCmd.Flags().IntVar(&vmid, "vmid", 0, "")
+	listCmd.MarkFlagRequired("vmid")
 }

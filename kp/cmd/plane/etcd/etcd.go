@@ -1,6 +1,9 @@
 package etcd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+	"github.com/tuana9a/kp/kp/cmd/plane/etcd/member"
+)
 
 var vmid int
 var dadId int
@@ -12,6 +15,5 @@ var EtcdCmd = &cobra.Command{
 }
 
 func init() {
-	EtcdCmd.AddCommand(listMembersCmd)
-	EtcdCmd.AddCommand(removeMemberCmd)
+	EtcdCmd.AddCommand(member.MemberCmd)
 }

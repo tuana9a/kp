@@ -1,4 +1,4 @@
-package kubevm
+package kubeadm
 
 import (
 	"context"
