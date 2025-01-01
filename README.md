@@ -11,11 +11,11 @@ a kubernetes proxmox cli
 - [Prepare the config.json](#prepare-the-configjson)
 - [How to use](#how-to-use)
 - [Example](#example)
-  - [Creating worker node](#creating-worker-node)
+  - [Create worker node](#create-worker-node)
   - [Delete worker node](#delete-worker-node)
-  - [Creating control plane](#creating-control-plane)
+  - [Create control plane](#create-control-plane)
   - [Install kubevip](#install-kubevip)
-  - [Removing control plane](#removing-control-plane)
+  - [Delete control plane](#delete-control-plane)
   - [Mirroring images](#mirroring-images)
 - [Life saving tips](#life-saving-tips)
   - [Randomly and continuously etcdserver switch leader, kubectl randomly failed also, so frustrating](#randomly-and-continuously-etcdserver-switch-leader-kubectl-randomly-failed-also-so-frustrating)
@@ -111,14 +111,14 @@ kp tree
 
 # Example
 
-## Creating worker node
+## Create worker node
 
 ```bash
-template_id=1002
-dad_id=122
-child_id=129
-vm_net=vmbr56
-vm_ip='192.168.56.29/24'
+template_id= # ex 1002
+dad_id= # ex 122
+child_id= # ex 129
+vm_net= # ex vmbr56
+vm_ip= # ex '192.168.56.29/24'
 vm_gateway_ip='192.168.56.1'
 vm_cores=4
 vm_mem=8192
@@ -138,21 +138,21 @@ go run . worker join --dad-id $dad_id --child-id $child_id
 ```bash
 dad_id=122
 child_id=130
-go run . plane drain --dad-id $dad_id --child-id $child_id
-go run . plane delete-node --dad-id $dad_id --child-id $child_id
+go run . vm kubectl drain --dad-id $dad_id --child-id $child_id
+go run . vm kubectl delete node --dad-id $dad_id --child-id $child_id
 go run . vm shutdown --vmid $child_id
 go run . vm delete --vmid $child_id
 ```
 
-## Creating control plane
+## Create control plane
 
 ```bash
-template_id=1001
-dad_id=122
-child_id=123
-vm_net=vmbr56
-vm_ip='192.168.56.23/24'
-vm_gateway_ip='192.168.56.1'
+template_id= # ex '1002'
+dad_id= # ex '122'
+child_id= # ex '123'
+vm_net= # ex 'vmbr56'
+vm_ip= # ex '192.168.56.23/24'
+vm_gateway_ip= # ex '192.168.56.1'
 vm_cores=2
 vm_mem=4096
 go run . vm clone --template-id $template_id --vmid $child_id
@@ -167,24 +167,34 @@ go run . vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube
 go run . plane join --dad-id $dad_id --child-id $child_id
 ```
 
+I'm using kubevip
+
+```bash
+vip= # ex: 192.168.56.21
+inf=eth0
+go run . vm kubevip install --inf $inf --vip $vip --vmid $child_id
+go run . vm kubevip status --vmid $child_id
+```
+
 ## Install kubevip
 
 ```bash
-vmid=122
+vmid=
 inf=eth0
-vip=192.168.56.21
+vip= # ex 192.168.56.21
 go run . plane kubevip install --vmid $vmid --inf $inf --vip $vip
 ```
 
-## Removing control plane
+## Delete control plane
 
 ```bash
-dad_id=122
-child_id=124
-go run . plane drain --dad-id $dad_id --child-id $child_id
-go run . plane delete-node --dad-id $dad_id --child-id $child_id
+dad_id=
+child_id=
+go run . vm kubectl drain --dad-id $dad_id --child-id $child_id
+go run . vm kubectl delete node --dad-id $dad_id --child-id $child_id
 go run . vm kubeadm reset --vmid $child_id
-go run . plane etcd member remove --dad-id $dad_id --child-id $child_id
+go run . vm etcd member remove --dad-id $dad_id --child-id $child_id
+go run . vm etcd member list --vmid $dad_id
 go run . vm shutdown --vmid $child_id
 go run . vm delete --vmid $child_id
 ```
