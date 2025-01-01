@@ -1,4 +1,4 @@
-package plane
+package kubectl
 
 import (
 	"context"
@@ -9,8 +9,12 @@ import (
 	"github.com/tuana9a/kp/kp/util"
 )
 
+var deleteCmd = &cobra.Command{
+	Use: "delete",
+}
+
 var deleteNodeCmd = &cobra.Command{
-	Use: "delete-node",
+	Use: "node",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
@@ -65,4 +69,6 @@ func init() {
 
 	deleteNodeCmd.Flags().IntVar(&childId, "child-id", 0, "child id or node id (required)")
 	deleteNodeCmd.MarkFlagRequired("child-id")
+
+	deleteCmd.AddCommand(deleteNodeCmd)
 }

@@ -1,4 +1,4 @@
-package plane
+package kubectl
 
 import (
 	"context"
@@ -9,9 +9,8 @@ import (
 	"github.com/tuana9a/kp/kp/util"
 )
 
-var drainNodeCmd = &cobra.Command{
-	Use:     "drain-node",
-	Aliases: []string{"drain"},
+var drainCmd = &cobra.Command{
+	Use: "drain",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
@@ -61,9 +60,9 @@ var drainNodeCmd = &cobra.Command{
 }
 
 func init() {
-	drainNodeCmd.Flags().IntVar(&dadId, "dad-id", 0, "dad id or control plane id (required)")
-	drainNodeCmd.MarkFlagRequired("dad-id")
+	drainCmd.Flags().IntVar(&dadId, "dad-id", 0, "dad id or control plane id (required)")
+	drainCmd.MarkFlagRequired("dad-id")
 
-	drainNodeCmd.Flags().IntVar(&childId, "child-id", 0, "child id or node id (required)")
-	drainNodeCmd.MarkFlagRequired("child-id")
+	drainCmd.Flags().IntVar(&childId, "child-id", 0, "child id or node id (required)")
+	drainCmd.MarkFlagRequired("child-id")
 }
