@@ -4,45 +4,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "autopep8",
-            "type": "shell",
-            "command": ".venv/bin/autopep8 -v *.py kp tests",
-            "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "isort",
-            "type": "shell",
-            "command": ".venv/bin/isort -v *.py kp tests",
-            "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "fmt",
-            "type": "shell",
-            "command": ".venv/bin/isort -v *.py kp tests && .venv/bin/autopep8 -v *.py kp tests",
-            "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
-            "label": "pylint",
-            "type": "shell",
-            "command": ".venv/bin/pylint -v *.py kp tests",
-            "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            }
-        },
-        {
             "label": "build",
             "type": "shell",
-            "command": ".venv/bin/pyinstaller --name kp --onefile --hidden-import proxmoxer.backends --hidden-import proxmoxer.backends.https main.py",
+            "command": "go build -o dist/kp",
             "problemMatcher": [],
             "options": {
                 "cwd": "${workspaceFolder}"
