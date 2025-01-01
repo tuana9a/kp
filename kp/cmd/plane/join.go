@@ -68,23 +68,25 @@ var joinCmd = &cobra.Command{
 		joinCmd, err := dadKubeVm.CreateControlPlaneJoinCommand(ctx)
 		fmt.Println(joinCmd)
 		if err != nil {
-			// TODO
+			fmt.Println("Error when create join command", err)
+			return
 		}
 
 		fmt.Println("Exec join command")
 		pid, err := childKubeVm.AgentExec(ctx, joinCmd, "")
 		if err != nil {
-			// TODO
-		}
-		status, err := childKubeVm.WaitForAgentExecExit(ctx, pid, timeoutSeconds)
-		if err != nil {
-			// TODO
 			fmt.Println("Error when exec join command", err)
 			return
 		}
-		fmt.Println("Exec join command status", status)
+		status, err := childKubeVm.WaitForAgentExecExit(ctx, pid, timeoutSeconds)
+		if err != nil {
+			fmt.Println("Error when exec join command", err)
+			return
+		}
+		fmt.Println("Exec join command status")
+		fmt.Println(status.OutData)
 		if status.ExitCode != 0 {
-			// TODO
+			fmt.Println(status.ErrData)
 		}
 	},
 }
