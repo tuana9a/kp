@@ -2,13 +2,9 @@ package etcd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/tuana9a/kp/kp/cmd/plane/etcd/endpoint"
 	"github.com/tuana9a/kp/kp/cmd/plane/etcd/member"
 )
-
-var vmid int
-var dadId int
-var childId int
-var vmNamePrefix string
 
 var EtcdCmd = &cobra.Command{
 	Use: "etcd",
@@ -16,4 +12,5 @@ var EtcdCmd = &cobra.Command{
 
 func init() {
 	EtcdCmd.AddCommand(member.MemberCmd)
+	EtcdCmd.AddCommand(endpoint.EndpointCmd)
 }
