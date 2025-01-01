@@ -11,8 +11,12 @@ a kubernetes proxmox cli
 - [Prepare the config.json](#prepare-the-configjson)
 - [How to use](#how-to-use)
 - [Example](#example)
-  - [Creating control plane](#creating-control-plane)
-  - [Removing control plane](#removing-control-plane)
+  - [Create worker node](#create-worker-node)
+  - [Delete worker node](#delete-worker-node)
+  - [Create control plane](#create-control-plane)
+  - [Install kubevip](#install-kubevip)
+  - [Delete control plane](#delete-control-plane)
+  - [Mirroring images](#mirroring-images)
 - [Life saving tips](#life-saving-tips)
   - [Randomly and continuously etcdserver switch leader, kubectl randomly failed also, so frustrating](#randomly-and-continuously-etcdserver-switch-leader-kubectl-randomly-failed-also-so-frustrating)
   - [Recovering your cluster when no hope left](#recovering-your-cluster-when-no-hope-left)
@@ -50,28 +54,22 @@ apt install libguestfs-tools
 Download base image
 
 ```bash
-base_img_file=jammy-server-cloudimg-amd64.img
-wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img -O $base_img_file
-```
+base_img_file=debian-12-generic-amd64.qcow2
+wget https://cdimage.debian.org/images/cloud/bookworm/20241201-1948/debian-12-generic-amd64-20241201-1948.qcow2 -O $base_img_file
 
-Installing `qemu-guest-agent` is required
-
-```bash
-base_img_file=jammy-server-cloudimg-amd64.img
-img_file=jammy.img
+img_file=debian.img
 cp $base_img_file $img_file
-virt-customize -a $img_file --install qemu-guest-agent
-```
 
-```bash
-img_file=jammy.img
-storage=local-lvm
-vmid=9999
+# Installing `qemu-guest-agent` is required
+virt-customize -a $img_file --install qemu-guest-agent
+
+storage=local
+vmid=1002
 core_count=1
 mem_size=1024
 
 qm create $vmid --cores $core_count --memory $mem_size --scsihw virtio-scsi-pci
-qm set $vmid --name jammy
+qm set $vmid --name bookworm
 qm set $vmid --scsi0 $storage:0,import-from=$PWD/$img_file
 qm set $vmid --ide2 $storage:cloudinit
 qm set $vmid --boot order=scsi0
@@ -113,39 +111,138 @@ kp tree
 
 # Example
 
-## Creating control plane
+## Create worker node
 
 ```bash
-template_id=1001
-dad_id=122
-child_id=123
-vm_net=vmbr56
-vm_ip='192.168.56.23/24'
+template_id= # ex 1002
+dad_id= # ex 122
+child_id= # ex 129
+vm_net= # ex vmbr56
+vm_ip= # ex '192.168.56.29/24'
 vm_gateway_ip='192.168.56.1'
+vm_cores=4
+vm_mem=8192
+go run . vm clone --template-id $template_id --vmid $child_id
+go run . vm disk resize --vmid $child_id --diff +30G
+go run . vm config update --vmid $child_id --vm-net $vm_net --vm-ip $vm_ip --vm-gateway-ip $vm_gateway_ip --vm-cores $vm_cores --vm-mem $vm_mem --vm-start-on-boot
+go run . vm start --vmid $child_id
+go run . vm agent wait --vmid $child_id
+go run . vm cloudinit wait --vmid $child_id
+go run . vm ssh inject-authorized-keys --vmid $child_id
+go run . vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-worker-1.30.sh
+go run . worker join --dad-id $dad_id --child-id $child_id
+```
+
+## Delete worker node
+
+```bash
+dad_id=122
+child_id=130
+go run . vm kubectl drain --dad-id $dad_id --child-id $child_id
+go run . vm kubectl delete node --dad-id $dad_id --child-id $child_id
+go run . vm shutdown --vmid $child_id
+go run . vm delete --vmid $child_id
+```
+
+## Create control plane
+
+```bash
+template_id= # ex '1002'
+dad_id= # ex '122'
+child_id= # ex '123'
+vm_net= # ex 'vmbr56'
+vm_ip= # ex '192.168.56.23/24'
+vm_gateway_ip= # ex '192.168.56.1'
 vm_cores=2
 vm_mem=4096
 go run . vm clone --template-id $template_id --vmid $child_id
-go run . vm resize-disk --vmid $child_id --resize +18G
-go run . vm update-config --vmid $child_id --vm-net $vm_net --vm-ip $vm_ip --vm-gateway-ip $vm_gateway_ip --vm-cores $vm_cores --vm-mem $vm_mem --vm-start-on-boot
+go run . vm disk resize --vmid $child_id --diff +18G
+go run . vm config update --vmid $child_id --vm-net $vm_net --vm-ip $vm_ip --vm-gateway-ip $vm_gateway_ip --vm-cores $vm_cores --vm-mem $vm_mem --vm-start-on-boot
 go run . vm start --vmid $child_id
-go run . vm wait-agent --vmid $child_id
-go run . vm wait-cloudinit --vmid $child_id
-go run . vm inject-authorized-keys --vmid $child_id
-go run . vm run-userdata --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
+go run . vm agent wait --vmid $child_id
+go run . vm cloudinit wait --vmid $child_id
+go run . vm ssh inject-authorized-keys --vmid $child_id
+go run . vm kubesetup run --vmid $child_id
+go run . vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
 go run . plane join --dad-id $dad_id --child-id $child_id
 ```
 
-## Removing control plane
+I'm using kubevip
 
 ```bash
-dad_id=122
-child_id=124
-go run . plane drain --dad-id $dad_id --child-id $child_id
-go run . plane delete-node --dad-id $dad_id --child-id $child_id
-go run . kubevm reset --vmid $child_id
-go run . plane etcd remove-member --dad-id $dad_id --child-id $child_id
+vip= # ex: 192.168.56.21
+inf=eth0
+go run . vm kubevip install --inf $inf --vip $vip --vmid $child_id
+go run . vm kubevip status --vmid $child_id
+```
+
+## Install kubevip
+
+```bash
+vmid=
+inf=eth0
+vip= # ex 192.168.56.21
+go run . plane kubevip install --vmid $vmid --inf $inf --vip $vip
+```
+
+## Delete control plane
+
+```bash
+dad_id=
+child_id=
+go run . vm kubectl drain --dad-id $dad_id --child-id $child_id
+go run . vm kubectl delete node --dad-id $dad_id --child-id $child_id
+go run . vm kubeadm reset --vmid $child_id
+go run . vm etcd member remove --dad-id $dad_id --child-id $child_id
+go run . vm etcd member list --vmid $dad_id
 go run . vm shutdown --vmid $child_id
 go run . vm delete --vmid $child_id
+```
+
+## Mirroring images
+
+```bash
+kubeadm config images list
+```
+
+example `v1.30.6`
+
+```txt
+registry.k8s.io/coredns/coredns:v1.11.3
+registry.k8s.io/etcd:3.5.15-0
+registry.k8s.io/kube-apiserver:v1.30.5
+registry.k8s.io/kube-controller-manager:v1.30.5
+registry.k8s.io/kube-proxy:v1.30.5
+registry.k8s.io/kube-scheduler:v1.30.5
+registry.k8s.io/pause:3.9
+```
+
+```bash
+for i in $(cat /tmp/images); do
+  new_name=$(echo $i | sed 's|registry.k8s.io|asia-southeast1-docker.pkg.dev/tuana9a/registry-k8s-io|g' | sed 's|coredns/coredns|coredns|g');
+  gcrane copy $i $new_name;
+done
+```
+
+edit `imageRepository`
+
+```bash
+kubectl -n kube-system edit cm kubeadm-config
+```
+
+```yaml
+apiVersion: v1
+data:
+  ClusterConfiguration: |
+    apiVersion: kubeadm.k8s.io/v1beta3
+    certificatesDir: /etc/kubernetes/pki
+    clusterName: kubernetes
+    imageRepository: asia-southeast1-docker.pkg.dev/tuana9a/registry-k8s-io # HERE
+    kind: ClusterConfiguration
+kind: ConfigMap
+metadata:
+  name: kubeadm-config
+  namespace: kube-system
 ```
 
 # Life saving tips

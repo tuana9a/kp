@@ -75,10 +75,12 @@ var joinCmd = &cobra.Command{
 			fmt.Println("Error when exec join command", err)
 			return
 		}
-		fmt.Println("Exec join command status", status)
 		if status.ExitCode != 0 {
-			// TODO
+			fmt.Println("Exec join command exit non-zero")
+			fmt.Println(status.ErrData)
 		}
+		fmt.Println("Exec join command stdout")
+		fmt.Println(status.OutData)
 	},
 }
 
