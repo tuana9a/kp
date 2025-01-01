@@ -15,4 +15,6 @@ var KubevipCmd = &cobra.Command{
 
 func init() {
 	KubevipCmd.AddCommand(installCmd)
+	KubevipCmd.AddCommand(uninstallCmd)
+	KubevipCmd.AddCommand(statusCmd)
 }

@@ -118,6 +118,22 @@ func (vm *KubeVirtualMachine) InstallKubevip(ctx context.Context, inf string, vi
 	return nil
 }
 
+func (vm *KubeVirtualMachine) UninstallKubevip(ctx context.Context, inf string, vip string) error {
+	pid, err := vm.AgentExec(ctx, []string{"rm", "-f", constants.KubevipYamlPath}, "")
+	if err != nil {
+		return err
+	}
+	status, err := vm.WaitForAgentExecExit(ctx, pid, 5)
+	if err != nil {
+		return err
+	}
+	fmt.Println(status.OutData)
+	if status.ExitCode != 0 {
+		fmt.Println(status.ErrData)
+	}
+	return nil
+}
+
 func (vm *KubeVirtualMachine) KubeadmReset(ctx context.Context) error {
 	pid, err := vm.AgentExec(ctx, []string{"kubeadm", "reset", "-f"}, "")
 	if err != nil {
