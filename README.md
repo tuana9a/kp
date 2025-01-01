@@ -16,6 +16,7 @@ a kubernetes proxmox cli
   - [Creating control plane](#creating-control-plane)
   - [Install kubevip](#install-kubevip)
   - [Removing control plane](#removing-control-plane)
+  - [Mirroring images](#mirroring-images)
 - [Life saving tips](#life-saving-tips)
   - [Randomly and continuously etcdserver switch leader, kubectl randomly failed also, so frustrating](#randomly-and-continuously-etcdserver-switch-leader-kubectl-randomly-failed-also-so-frustrating)
   - [Recovering your cluster when no hope left](#recovering-your-cluster-when-no-hope-left)
@@ -186,6 +187,52 @@ go run . vm kubeadm reset --vmid $child_id
 go run . plane etcd member remove --dad-id $dad_id --child-id $child_id
 go run . vm shutdown --vmid $child_id
 go run . vm delete --vmid $child_id
+```
+
+## Mirroring images
+
+```bash
+kubeadm config images list
+```
+
+example `v1.30.6`
+
+```txt
+registry.k8s.io/coredns/coredns:v1.11.3
+registry.k8s.io/etcd:3.5.15-0
+registry.k8s.io/kube-apiserver:v1.30.5
+registry.k8s.io/kube-controller-manager:v1.30.5
+registry.k8s.io/kube-proxy:v1.30.5
+registry.k8s.io/kube-scheduler:v1.30.5
+registry.k8s.io/pause:3.9
+```
+
+```bash
+for i in $(cat /tmp/images); do
+  new_name=$(echo $i | sed 's|registry.k8s.io|asia-southeast1-docker.pkg.dev/tuana9a/registry-k8s-io|g' | sed 's|coredns/coredns|coredns|g');
+  gcrane copy $i $new_name;
+done
+```
+
+edit `imageRepository`
+
+```bash
+kubectl -n kube-system edit cm kubeadm-config
+```
+
+```yaml
+apiVersion: v1
+data:
+  ClusterConfiguration: |
+    apiVersion: kubeadm.k8s.io/v1beta3
+    certificatesDir: /etc/kubernetes/pki
+    clusterName: kubernetes
+    imageRepository: asia-southeast1-docker.pkg.dev/tuana9a/registry-k8s-io # HERE
+    kind: ClusterConfiguration
+kind: ConfigMap
+metadata:
+  name: kubeadm-config
+  namespace: kube-system
 ```
 
 # Life saving tips
