@@ -7,6 +7,7 @@ import (
 	"github.com/tuana9a/kp/kp/cmd/vm/config"
 	"github.com/tuana9a/kp/kp/cmd/vm/disk"
 	"github.com/tuana9a/kp/kp/cmd/vm/kubeadm"
+	"github.com/tuana9a/kp/kp/cmd/vm/kubesetup"
 	"github.com/tuana9a/kp/kp/cmd/vm/ssh"
 	"github.com/tuana9a/kp/kp/cmd/vm/userdata"
 )
@@ -31,4 +32,5 @@ func init() {
 	VirtualMachineCmd.AddCommand(userdata.UserdataCmd)
 	VirtualMachineCmd.AddCommand(ssh.SshCmd)
 	VirtualMachineCmd.AddCommand(kubeadm.KubeadmCmd)
+	VirtualMachineCmd.AddCommand(kubesetup.KubesetupCmd)
 }

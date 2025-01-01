@@ -161,6 +161,7 @@ go run . vm start --vmid $child_id
 go run . vm agent wait --vmid $child_id
 go run . vm cloudinit wait --vmid $child_id
 go run . vm ssh inject-authorized-keys --vmid $child_id
+go run . vm kubesetup run --vmid $child_id
 go run . vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
 go run . plane join --dad-id $dad_id --child-id $child_id
 ```
