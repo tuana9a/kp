@@ -67,3 +67,4 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 # Install kubernetes dependencies
 apt-get update
 apt install -y kubelet='1.30.6-*' kubeadm='1.30.6-*' kubectl='1.30.6-*'
+apt-mark hold kubelet kubeadm kubectl
