@@ -2,27 +2,11 @@
 
 a kubernetes proxmox cli
 
-## Table of Contents
-
-- [kp](#kp)
-  - [Table of Contents](#table-of-contents)
-- [Prepare the network for vm](#prepare-the-network-for-vm)
-- [Prefare vm template](#prefare-vm-template)
-- [Prepare the config.json](#prepare-the-configjson)
-- [How to use](#how-to-use)
-- [Example](#example)
-  - [Create worker node](#create-worker-node)
-  - [Delete worker node](#delete-worker-node)
-  - [Create control plane](#create-control-plane)
-  - [Install kubevip](#install-kubevip)
-  - [Delete control plane](#delete-control-plane)
-  - [Mirroring images](#mirroring-images)
-- [Life saving tips](#life-saving-tips)
-  - [Randomly and continuously etcdserver switch leader, kubectl randomly failed also, so frustrating](#randomly-and-continuously-etcdserver-switch-leader-kubectl-randomly-failed-also-so-frustrating)
-  - [Recovering your cluster when no hope left](#recovering-your-cluster-when-no-hope-left)
-  - [etcdserver timeout](#etcdserver-timeout)
-- [Decision / Choise / Explain](#decision--choise--explain)
-  - [Immutable infrastructure](#immutable-infrastructure)
+- [life saving tips](./docs/life-saving.md)
+- [create control plane](./docs/create-control-plane.md)
+- [delete control plane](./docs/delete-control-plane.md)
+- [create worker node (data node)](./docs/create-worker-node.md)
+- [delete worker node (data node)](./docs/delete-worker-node.md)
 
 # Prepare the network for vm
 
@@ -77,10 +61,6 @@ qm set $vmid --serial0 socket --vga serial0
 qm template $vmid
 ```
 
-# Prepare the config.json
-
-See [./app/payload.py#Cfg](./app/payload.py#Cfg)
-
 # How to use
 
 ```bash
@@ -109,228 +89,11 @@ to see tree of command
 kp tree
 ```
 
-# Example
+# decision
 
-## Create worker node
+or choice
 
-```bash
-template_id= # ex 1002
-dad_id= # ex 122
-child_id= # ex 129
-vm_net= # ex vmbr56
-vm_ip= # ex '192.168.56.29/24'
-vm_gateway_ip='192.168.56.1'
-vm_cores=4
-vm_mem=8192
-go run . vm clone --template-id $template_id --vmid $child_id
-go run . vm disk resize --vmid $child_id --diff +30G
-go run . vm config update --vmid $child_id --vm-net $vm_net --vm-ip $vm_ip --vm-gateway-ip $vm_gateway_ip --vm-cores $vm_cores --vm-mem $vm_mem --vm-start-on-boot
-go run . vm start --vmid $child_id
-go run . vm agent wait --vmid $child_id
-go run . vm cloudinit wait --vmid $child_id
-go run . vm ssh inject-authorized-keys --vmid $child_id
-go run . vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-worker-1.30.sh
-go run . worker join --dad-id $dad_id --child-id $child_id
-```
-
-## Delete worker node
-
-```bash
-dad_id=122
-child_id=130
-go run . vm kubectl drain --dad-id $dad_id --child-id $child_id
-go run . vm kubectl delete node --dad-id $dad_id --child-id $child_id
-go run . vm shutdown --vmid $child_id
-go run . vm delete --vmid $child_id
-```
-
-## Create control plane
-
-```bash
-template_id= # ex '1002'
-dad_id= # ex '122'
-child_id= # ex '123'
-vm_net= # ex 'vmbr56'
-vm_ip= # ex '192.168.56.23/24'
-vm_gateway_ip= # ex '192.168.56.1'
-vm_cores=2
-vm_mem=4096
-go run . vm clone --template-id $template_id --vmid $child_id
-go run . vm disk resize --vmid $child_id --diff +18G
-go run . vm config update --vmid $child_id --vm-net $vm_net --vm-ip $vm_ip --vm-gateway-ip $vm_gateway_ip --vm-cores $vm_cores --vm-mem $vm_mem --vm-start-on-boot
-go run . vm start --vmid $child_id
-go run . vm agent wait --vmid $child_id
-go run . vm cloudinit wait --vmid $child_id
-go run . vm ssh inject-authorized-keys --vmid $child_id
-go run . vm kubesetup run --vmid $child_id
-go run . vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
-go run . plane join --dad-id $dad_id --child-id $child_id
-```
-
-I'm using kubevip
-
-```bash
-vip= # ex: 192.168.56.21
-inf=eth0
-go run . vm kubevip install --inf $inf --vip $vip --vmid $child_id
-go run . vm kubevip status --vmid $child_id
-```
-
-## Install kubevip
-
-```bash
-vmid=
-inf=eth0
-vip= # ex 192.168.56.21
-go run . plane kubevip install --vmid $vmid --inf $inf --vip $vip
-```
-
-## Delete control plane
-
-```bash
-dad_id=
-child_id=
-go run . vm kubectl drain --dad-id $dad_id --child-id $child_id
-go run . vm kubectl delete node --dad-id $dad_id --child-id $child_id
-go run . vm kubeadm reset --vmid $child_id
-go run . vm etcd member remove --dad-id $dad_id --child-id $child_id
-go run . vm etcd member list --vmid $dad_id
-go run . vm shutdown --vmid $child_id
-go run . vm delete --vmid $child_id
-```
-
-## Mirroring images
-
-```bash
-kubeadm config images list
-```
-
-example `v1.30.6`
-
-```txt
-registry.k8s.io/coredns/coredns:v1.11.3
-registry.k8s.io/etcd:3.5.15-0
-registry.k8s.io/kube-apiserver:v1.30.5
-registry.k8s.io/kube-controller-manager:v1.30.5
-registry.k8s.io/kube-proxy:v1.30.5
-registry.k8s.io/kube-scheduler:v1.30.5
-registry.k8s.io/pause:3.9
-```
-
-```bash
-for i in $(cat /tmp/images); do
-  new_name=$(echo $i | sed 's|registry.k8s.io|asia-southeast1-docker.pkg.dev/tuana9a/registry-k8s-io|g' | sed 's|coredns/coredns|coredns|g');
-  gcrane copy $i $new_name;
-done
-```
-
-edit `imageRepository`
-
-```bash
-kubectl -n kube-system edit cm kubeadm-config
-```
-
-```yaml
-apiVersion: v1
-data:
-  ClusterConfiguration: |
-    apiVersion: kubeadm.k8s.io/v1beta3
-    certificatesDir: /etc/kubernetes/pki
-    clusterName: kubernetes
-    imageRepository: asia-southeast1-docker.pkg.dev/tuana9a/registry-k8s-io # HERE
-    kind: ClusterConfiguration
-kind: ConfigMap
-metadata:
-  name: kubeadm-config
-  namespace: kube-system
-```
-
-# Life saving tips
-
-This is my experience to fix it, not a must to do but if you're running out of idea, try it
-
-## Randomly and continuously etcdserver switch leader, kubectl randomly failed also, so frustrating
-
-REASON: Power outtage, the etcd cluster was shutdown properly
-
-Let's say we have 3 control planes 122, 123, 124
-
-```bash
-kp plane etcdctl member rm [member_id]
-```
-
-```bash
-kp vm kubeadm-reset [vmid]
-```
-
-## Recovering your cluster when no hope left
-
-REASON: lost 2/3 control planes, quorum lost, ...
-
-```bash
-#!/bin/bash
-
-sudo -i
-
-ETCDCTL_CACERT=/etc/kubernetes/pki/etcd/ca.crt
-ETCDCTL_CERT=/etc/kubernetes/pki/apiserver-etcd-client.crt
-ETCDCTL_KEY=/etc/kubernetes/pki/apiserver-etcd-client.key
-ETCDCTL_OPTS="--cacert=$ETCDCTL_CACERT --cert=$ETCDCTL_CERT --key=$ETCDCTL_KEY"
-
-# check status
-ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list
-ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list -w table
-ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list -w json
-ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS endpoint status --cluster -w table
-
-# backup certs
-rm -r /root/pki
-cp -r /etc/kubernetes/pki /root/
-
-# backup etcd (data loss is expected)
-rm -r /root/etcd
-cp -r /var/lib/etcd/ /root/
-
-# cleanup things
-kubeadm reset -f
-
-# restore the certs
-cp -r /root/pki/ /etc/kubernetes/
-
-# restore the etcd data, drop old membership data and re init again with single etcd node
-# NOTE: Pod will be in Pending and kube-apiserver yelling about authenticate request if not specify "--bump-revision 1000000000 --mark-compacted"
-ETCD_SNAPSHOT=/root/snapshot.db # clean snapshot using `etcdctl snapshot`
-ETCD_SNAPSHOT=/root/etcd/member/snap/db # hot copy from /var/lib/etcd/member/snap/db
-BUMP_REVISION=1000000000 # amount of revison will be bumped, etcd increase the revision every write, so most likey your snapshot is falling back if compared to the current state of the cluster
-NODE_NAME=i-122 # the node name that you're trying to restore to
-NODE_IP=192.168.56.22 # the node ip that you're trying to restore to
-
-etcdutl snapshot restore $ETCD_SNAPSHOT \
-  --name $NODE_NAME \
-  --initial-cluster $NODE_NAME=https://$NODE_IP:2380 \
-  --initial-cluster-token $RANDOM \
-  --initial-advertise-peer-urls https://$NODE_IP:2380 \
-  --skip-hash-check=true \
-  --bump-revision ${BUMP_REVISION:-1000000000} --mark-compacted \
-  --data-dir /var/lib/etcd
-
-# init the cluster again and ignore existing data in /var/lib/etcd and you're good to go with your healthy cluster
-kubeadm init \
-  --control-plane-endpoint='192.168.56.21' \
-  --pod-network-cidr='10.244.0.0/16' \
-  --service-cidr='10.233.0.0/16' \
-  --ignore-preflight-errors=DirAvailable--var-lib-etcd
-```
-
-## etcdserver timeout
-
-https://etcd.io/docs/v3.4/tuning/
-
-Mostly because of disk performance: I faced this issue when trying to evict a longhorn node, by evicting longhorn node, its storage (replicas, volume) got transfer to other node, which cause the disk io spike, I deploy the control plane vm and the worker vm on the same ssd sata, which make the evicting affect the etcd in the control plane vm. By moving the control plane vm to use other disk: mine nvme, the above issue is no longer seen. This thing will also happens if you deploying new deployment, helm, ... because the worker will pull the image which will make the dis io high again.
-
-# Decision / Choise / Explain
-
-## Immutable infrastructure
+## immutable infrastructure
 
 - converting worker to control plane or in reverse is not straight forward, as `kubeadm reset` leave cni (network), iptables behind so instead of modifing the node just remove it and create a new one.
 - when upgrading the k8s, upgrade in-place for worker node is not a must, we can just drain it, remove it, destroy it then create a new one with installed newer k8s verion.
