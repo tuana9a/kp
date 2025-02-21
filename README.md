@@ -2,12 +2,6 @@
 
 a kubernetes proxmox cli
 
-- [life saving tips](./docs/life-saving.md)
-- [create control plane](./docs/create-control-plane.md)
-- [delete control plane](./docs/delete-control-plane.md)
-- [create worker node (data node)](./docs/create-worker-node.md)
-- [delete worker node (data node)](./docs/delete-worker-node.md)
-
 # documentation
 
 See folder [`docs/`](docs/) for number of docs

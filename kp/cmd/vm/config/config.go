@@ -13,6 +13,7 @@ var vmGatewayIp string
 var vmCores int
 var vmMem int
 var vmMemBallooned bool
+var vmDnsServers string
 var vmUsername string
 var vmPassword string
 var vmStartOnBoot bool
