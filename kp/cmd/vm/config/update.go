@@ -10,6 +10,8 @@ import (
 	"github.com/tuana9a/kp/kp/util"
 )
 
+// https://pve.proxmox.com/pve-docs/api-viewer/#/nodes/{node}/qemu/{vmid}/config
+
 var updateCmd = &cobra.Command{
 	Use: "update",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -75,6 +77,9 @@ var updateCmd = &cobra.Command{
 			ipconfig0 := fmt.Sprintf("ip=%s,gw=%s", vmIp, vmGatewayIp)
 			newConfig = append(newConfig, proxmox.VirtualMachineOption{Name: "ipconfig0", Value: ipconfig0})
 		}
+		if vmDnsServers != "" {
+			newConfig = append(newConfig, proxmox.VirtualMachineOption{Name: "nameserver", Value: vmDnsServers})
+		}
 		if vmStartOnBoot {
 			newConfig = append(newConfig, proxmox.VirtualMachineOption{Name: "onboot", Value: vmStartOnBoot})
 		}
@@ -99,6 +104,7 @@ func init() {
 	updateCmd.Flags().StringVar(&vmIp, "vm-ip", "", "ex: 192.168.56.22/24 (required)")
 	updateCmd.Flags().StringVar(&vmGatewayIp, "vm-gateway-ip", "", "VM network gateway ip(required)")
 	updateCmd.MarkFlagsRequiredTogether("vm-net", "vm-ip", "vm-gateway-ip")
+	updateCmd.Flags().StringVar(&vmDnsServers, "vm-dns-servers", "", "VM dns servers")
 	updateCmd.Flags().StringVar(&vmNamePrefix, "vm-name-prefix", "i-", "prefix for VM names (default: i-)")
 	updateCmd.Flags().IntVar(&vmCores, "vm-cores", 0, "number of VM cores (default: 2)")
 	updateCmd.Flags().IntVar(&vmMem, "vm-mem", 0, "amount of VM memory in MB (default: 4096)")
