@@ -7,7 +7,7 @@ go build -o dist/kp
 ```
 
 ```bash
-sudo ln -sf dist/kp /usr/local/bin/kp
+sudo ln -sf $PWD/dist/kp /usr/local/bin/kp
 ```
 
 ```bash

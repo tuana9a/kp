@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "go build -o dist/kp",
+            "command": "go build -o ./dist/kp .",
             "problemMatcher": [],
             "options": {
                 "cwd": "${workspaceFolder}"
