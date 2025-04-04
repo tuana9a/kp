@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/tuana9a/kp/cmd/plane"
@@ -24,12 +23,8 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	defaultConfigLocation := os.Getenv("KP_CONFIG")
-	if defaultConfigLocation == "" {
-		defaultConfigLocation = filepath.Join(os.Getenv("HOME"), "/.kp.config.json")
-	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", defaultConfigLocation, "verbose output")
+	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", "", "config file location")
 	rootCmd.AddCommand(worker.WorkerCmd)
 	rootCmd.AddCommand(vm.VirtualMachineCmd)
 	rootCmd.AddCommand(plane.ControlPlaneCmd)
