@@ -2,49 +2,50 @@ package vm
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/tuana9a/kp/util"
+	"go.uber.org/zap"
 )
 
 var shutdownCmd = &cobra.Command{
 	Use: "shutdown",
 	Run: func(cmd *cobra.Command, args []string) {
-		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
-		fmt.Println("verbose: ", verbose)
-
+		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+		util.Log().Info("configPath", zap.String("configPath", configPath))
 		cfg := util.LoadConfig(configPath)
 
 		proxmoxClient, _ := util.CreateProxmoxClient(cfg)
 		version, err := proxmoxClient.Version(context.Background())
 		if err != nil {
-			panic(err)
+			util.Log().Error("test proxmox connection error", zap.Error(err))
+			return
 		}
-		fmt.Println("proxmox-api version: ", version.Version)
-		ctx := context.Background()
+		util.Log().Info("proxmox-api version", zap.String("proxmox_version", version.Version))
 
 		pveNode, err := proxmoxClient.Node(ctx, cfg.ProxmoxNode)
 		if err != nil {
-			fmt.Println("Error when getting proxmox node", err)
+			util.Log().Error("get proxmox node error", zap.Error(err))
 			return
 		}
 
 		vm, err := pveNode.VirtualMachine(ctx, vmid)
 		if err != nil {
-			panic(err)
+			util.Log().Error("get vm error", zap.Error(err))
+			return
 		}
 
 		task, err := vm.Shutdown(ctx)
 		if err != nil {
-			panic(err)
+			util.Log().Error("shutdown vm error", zap.Error(err))
+			return
 		}
 		status, completed, err := task.WaitForCompleteStatus(ctx, 15*60)
 		if err != nil {
-			panic(err)
+			util.Log().Info("wait clone task", zap.Bool("completed", completed))
 		}
-		fmt.Println("shutdown vm", vmid, "completed", completed, "status", status)
+		util.Log().Info("shutdown vm", zap.Int("vmid", vmid), zap.Bool("completed", completed), zap.Bool("status", status))
 	},
 }
 

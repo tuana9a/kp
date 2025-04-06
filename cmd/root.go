@@ -8,6 +8,7 @@ import (
 	"github.com/tuana9a/kp/cmd/plane"
 	"github.com/tuana9a/kp/cmd/vm"
 	"github.com/tuana9a/kp/cmd/worker"
+	"github.com/tuana9a/kp/util"
 )
 
 var verbose bool
@@ -17,9 +18,6 @@ var rootCmd = &cobra.Command{
 	Use:   "kp",
 	Short: "kp is a kubernetes proxmox cli",
 	Long:  "kp is a kubernetes proxmox cli",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Do Stuff Here
-	},
 }
 
 func init() {
@@ -31,6 +29,7 @@ func init() {
 }
 
 func Execute() {
+	util.InitLogger()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
