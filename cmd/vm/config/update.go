@@ -15,29 +15,29 @@ import (
 var updateCmd = &cobra.Command{
 	Use: "update",
 	Run: func(cmd *cobra.Command, args []string) {
-		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
-		fmt.Println("verbose: ", verbose)
-
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+		util.Sugar().Infof("configPath: %s", configPath)
 		cfg := util.LoadConfig(configPath)
 
 		proxmoxClient, _ := util.CreateProxmoxClient(cfg)
 		version, err := proxmoxClient.Version(context.Background())
 		if err != nil {
-			panic(err)
+			util.Sugar().Errorf("test proxmox connection error %s", err)
+			return
 		}
-		fmt.Println("proxmox-api version: ", version.Version)
+		util.Sugar().Infof("proxmox-api version: %s", version.Version)
 		ctx := context.Background()
 
 		pveNode, err := proxmoxClient.Node(ctx, cfg.ProxmoxNode)
 		if err != nil {
-			fmt.Println("Error when getting proxmox node", err)
+			util.Sugar().Errorf("get proxmox node error %s", err)
 			return
 		}
 
 		vm, err := pveNode.VirtualMachine(ctx, vmid)
 		if err != nil {
-			panic(err)
+			util.Sugar().Errorf("get vm error %s", err)
+			return
 		}
 
 		newConfig := []proxmox.VirtualMachineOption{}
@@ -86,13 +86,13 @@ var updateCmd = &cobra.Command{
 		fmt.Println("vm update_config", vmid, newConfig)
 		task, err := vm.Config(ctx, newConfig...)
 		if err != nil {
-			fmt.Println("ERROR vm update_config", err)
+			util.Sugar().Errorf("vm update_config error %s", err)
 			return
 		}
 		_, completed, _ := task.WaitForCompleteStatus(ctx, 30)
-		fmt.Println("Wait for update config task", "completed", completed)
+		util.Sugar().Infof("wait for update config task completed %s", completed)
 		if !completed {
-			fmt.Println("Can not update vm config", "taskId", task.ID)
+			util.Sugar().Errorf("Can not update vm config taskId: %s error: %s", task.ID, err)
 			return
 		}
 	},

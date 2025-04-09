@@ -2,39 +2,38 @@ package vm
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/luthermonson/go-proxmox"
 	"github.com/spf13/cobra"
 	"github.com/tuana9a/kp/util"
+	"go.uber.org/zap"
 )
 
 var cloneCmd = &cobra.Command{
 	Use: "clone",
 	Run: func(cmd *cobra.Command, args []string) {
-		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
-		fmt.Println("verbose: ", verbose)
-
+		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+		util.Log().Info("configPath", zap.String("configPath", configPath))
 		cfg := util.LoadConfig(configPath)
 
 		proxmoxClient, _ := util.CreateProxmoxClient(cfg)
 		version, err := proxmoxClient.Version(context.Background())
 		if err != nil {
-			panic(err)
+			util.Log().Error("test proxmox connection error", zap.Error(err))
+			return
 		}
-		fmt.Println("proxmox-api version: ", version.Version)
-		ctx := context.Background()
+		util.Log().Info("proxmox-api version", zap.String("proxmox_version", version.Version))
 
 		pveNode, err := proxmoxClient.Node(ctx, cfg.ProxmoxNode)
 		if err != nil {
-			fmt.Println("Error when getting proxmox node", err)
+			util.Log().Error("get proxmox node error", zap.Error(err))
 			return
 		}
 
 		templateVm, err := pveNode.VirtualMachine(ctx, templateId)
 		if err != nil {
-			fmt.Println("Error when getting template vm", err)
+			util.Log().Error("get vm error", zap.Error(err))
 			return
 		}
 
@@ -42,13 +41,13 @@ var cloneCmd = &cobra.Command{
 			NewID: vmid,
 		})
 		if err != nil {
-			fmt.Println("Error when cloning vm", err)
+			util.Log().Error("clone vm error", zap.Error(err))
 			return
 		}
 		_, completed, _ := task.WaitForCompleteStatus(ctx, 30)
-		fmt.Println("Wait for clone task", completed)
+		util.Log().Info("wait clone task", zap.Bool("completed", completed))
 		if !completed {
-			fmt.Println("Can not complete cloning vm", task.ID)
+			util.Log().Warn("clone vm is not completed", zap.String("taskID", task.ID))
 			return
 		}
 	},

@@ -1,14 +1,27 @@
 package util
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+)
 
-func CreateLogger(level string) *zap.Logger {
-	zLevel, _ := zap.ParseAtomicLevel(level)
-	var cfg = zap.Config{
-		Level:    zLevel,
-		Encoding: "json",
-	}
-	logger := zap.Must(cfg.Build())
+var log *zap.Logger
+var sugar *zap.SugaredLogger
+
+func CreateLogger() *zap.Logger {
+	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 	return logger
+}
+
+func InitLogger() {
+	log = CreateLogger()
+	sugar = log.Sugar()
+}
+
+func Log() *zap.Logger {
+	return log
+}
+
+func Sugar() *zap.SugaredLogger {
+	return sugar
 }

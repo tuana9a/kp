@@ -18,6 +18,8 @@ import (
 
 var vmid int
 var templateId int
+var username string
+var keyFile string
 
 var VirtualMachineCmd = &cobra.Command{
 	Use:     "virtual-machine",
@@ -35,6 +37,7 @@ func init() {
 	VirtualMachineCmd.AddCommand(cloudinit.CloudinitCmd)
 	VirtualMachineCmd.AddCommand(userdata.UserdataCmd)
 	VirtualMachineCmd.AddCommand(ssh.SshCmd)
+	VirtualMachineCmd.AddCommand(addAuthorizedKeyCmd)
 	VirtualMachineCmd.AddCommand(kubeadm.KubeadmCmd)
 	VirtualMachineCmd.AddCommand(kubesetup.KubesetupCmd)
 	VirtualMachineCmd.AddCommand(apiserver.ApiServerCmd)

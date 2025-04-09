@@ -5,7 +5,7 @@ import (
 )
 
 var vmid int
-var addFlagsFile string
+var flagsFile string
 
 var ApiServerCmd = &cobra.Command{
 	Use: "apiserver",
