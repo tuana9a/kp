@@ -4,7 +4,8 @@ import (
 	"go.uber.org/zap"
 )
 
-var globalLogger *zap.Logger
+var log *zap.Logger
+var sugar *zap.SugaredLogger
 
 func CreateLogger() *zap.Logger {
 	logger, _ := zap.NewProduction()
@@ -13,9 +14,14 @@ func CreateLogger() *zap.Logger {
 }
 
 func InitLogger() {
-	globalLogger = CreateLogger()
+	log = CreateLogger()
+	sugar = log.Sugar()
 }
 
 func Log() *zap.Logger {
-	return globalLogger
+	return log
+}
+
+func Sugar() *zap.SugaredLogger {
+	return sugar
 }
