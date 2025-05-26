@@ -1,0 +1,77 @@
+# Powered by Gemini
+
+name: build kp
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+env:
+  # Define the Docker image name. Replace with your Docker Hub username and repository name.
+  # Example: DOCKER_IMAGE: your-dockerhub-username/your-repo-name
+  DOCKER_IMAGE: ${{ secrets.DOCKER_HUB_USERNAME }}/kp
+  # Define the Dockerfile path. Assumes it's in the root of your repository.
+  DOCKERFILE_PATH: ./Dockerfile
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        # This action sets up Docker Buildx, which is a Docker CLI plugin
+        # that extends Docker's build capabilities with features like
+        # multi-platform builds and caching.
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        # This action logs into Docker Hub using the provided credentials.
+        # DOCKER_HUB_USERNAME and DOCKER_HUB_PASSWORD should be set as GitHub Secrets.
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Determine image tags
+        id: get_tags
+        run: |
+          # Get the branch name (e.g., 'main', 'feature-branch')
+          BRANCH_NAME="${{ github.ref_name }}"
+          # Get the full commit hash
+          FULL_COMMIT_HASH="${{ github.sha }}"
+          # Get the short commit hash (first 7 characters)
+          COMMIT_HASH_SHORT="${FULL_COMMIT_HASH:0:7}"
+
+          # Construct the image tag in the format branchName-commitHash
+          # Example: main-abcdef1
+          IMAGE_TAG="${BRANCH_NAME}-${COMMIT_HASH_SHORT}"
+
+          # Output the tag as a step output, accessible by other steps
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        # This action builds and pushes Docker images to a registry.
+        uses: docker/build-push-action@v5
+        with:
+          context: . # The build context, typically the root of your repository
+          file: ${{ env.DOCKERFILE_PATH }} # Path to your Dockerfile
+          push: true # Set to true to push the image to Docker Hub
+          tags: ${{ env.DOCKER_IMAGE }}:${{ steps.get_tags.outputs.IMAGE_TAG }} # Use the determined tags
+          cache-from: type=gha # Enable caching using GitHub Actions cache
+          cache-to: type=gha,mode=max # Store build cache in GitHub Actions cache
+
+      - id: set-status-ok
+        run: echo 'status=ok' >> $GITHUB_ENV
+
+      - name: Notify
+        if: ${{ always() }}
+        run: |
+          github_workflow="${{ github.workflow }}"
+          workflow_name=$github_workflow
+          MESSAGE="${status:-bad} $workflow_name \`${{ env.DOCKER_IMAGE }}:${{ steps.get_tags.outputs.IMAGE_TAG }}\` $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          curl -X POST ${{ secrets.DISCORD_WEBHOOK }} -H "Content-Type: application/json" -d "{\"content\":\"${MESSAGE}\"}"
