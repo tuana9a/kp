@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tuana9a/kp/cmd/vm/agent"
 	"github.com/tuana9a/kp/cmd/vm/apiserver"
+	"github.com/tuana9a/kp/cmd/vm/authkey"
 	"github.com/tuana9a/kp/cmd/vm/cloudinit"
 	"github.com/tuana9a/kp/cmd/vm/config"
 	"github.com/tuana9a/kp/cmd/vm/disk"
@@ -18,8 +19,6 @@ import (
 
 var vmid int
 var templateId int
-var username string
-var keyFile string
 
 var VirtualMachineCmd = &cobra.Command{
 	Use:     "virtual-machine",
@@ -37,7 +36,7 @@ func init() {
 	VirtualMachineCmd.AddCommand(cloudinit.CloudinitCmd)
 	VirtualMachineCmd.AddCommand(userdata.UserdataCmd)
 	VirtualMachineCmd.AddCommand(ssh.SshCmd)
-	VirtualMachineCmd.AddCommand(addAuthorizedKeyCmd)
+	VirtualMachineCmd.AddCommand(authkey.AuthorizedKeyCmd)
 	VirtualMachineCmd.AddCommand(kubeadm.KubeadmCmd)
 	VirtualMachineCmd.AddCommand(kubesetup.KubesetupCmd)
 	VirtualMachineCmd.AddCommand(apiserver.ApiServerCmd)
