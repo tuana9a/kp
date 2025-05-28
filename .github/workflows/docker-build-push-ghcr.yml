@@ -1,0 +1,38 @@
+#
+name: Demo Push
+
+# This workflow runs when any of the following occur:
+# - A push is made to a branch called `main` or `seed`
+# - A tag starting with "v" is created
+# - A pull request is created or updated
+on:
+  push:
+    branches:
+      - main
+      - dev
+env:
+  IMAGE_NAME: test
+#
+jobs:
+  # This pushes the image to GitHub Packages.
+  push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+      #
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        #
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+
+          docker tag $IMAGE_NAME $IMAGE_ID:test
+          docker push $IMAGE_ID:test
