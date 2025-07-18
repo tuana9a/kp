@@ -22,7 +22,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
-	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", "", "config file location")
+	rootCmd.PersistentFlags().StringVarP(&config, "config", "c", os.Getenv("KP_CONFIG"), "config file location")
 	rootCmd.AddCommand(worker.WorkerCmd)
 	rootCmd.AddCommand(vm.VirtualMachineCmd)
 	rootCmd.AddCommand(plane.ControlPlaneCmd)
