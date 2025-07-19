@@ -50,13 +50,19 @@ Download base image
 ```bash
 base_img_file=debian-12-generic-amd64.qcow2
 wget https://cdimage.debian.org/images/cloud/bookworm/20241201-1948/debian-12-generic-amd64-20241201-1948.qcow2 -O $base_img_file
+```
 
+```bash
 img_file=debian.img
 cp $base_img_file $img_file
+```
 
+```bash
 # Installing `qemu-guest-agent` is required
 virt-customize -a $img_file --install qemu-guest-agent
+```
 
+```bash
 storage=local
 vmid=1002
 core_count=1
@@ -157,12 +163,12 @@ kp vm disk resize --vmid $child_id --diff +18G
 kp vm config update --vmid $child_id --vm-cores $vm_cores --vm-mem $vm_mem --vm-net $vm_net --vm-ip $vm_ip --vm-gateway-ip $vm_gateway_ip --vm-dns-servers "$vm_dns_servers" --vm-start-on-boot
 
 kp vm start --vmid $child_id
-kp vm agent wait --vmid $child_id
-kp vm cloudinit wait --vmid $child_id
-kp vm ssh inject-authorized-keys --vmid $child_id # optional
+kp qemu agent wait --vmid $child_id
+kp cloudinit wait --vmid $child_id
+kp authkey add --vmid $child_id # optional
 
-kp vm kubesetup run --vmid $child_id
-kp vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
+kp kubesetup run --vmid $child_id
+kp userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
 kp plane join --dad-id $dad_id --child-id $child_id
 ```
 
@@ -171,11 +177,20 @@ i'm using kubevip
 ```bash
 vip='192.168.56.21'
 inf='eth0'
-```
-
-```bash
 kp vm kubevip install --inf $inf --vip $vip --vmid $child_id
 kp vm kubevip status --vmid $child_id
+```
+
+i'm using kubelogin and oidc to login with google
+
+```bash
+kp apiserver add-flags --vmid $vmid --file secrets/oidc-flags.json
+```
+
+add ssh authorized keys for later access
+
+```bash
+kp authkey add --vmid $child_id -u u -k "$(cat ~/.ssh/id_rsa.pub)" # optional
 ```
 
 ## delete control plane
@@ -190,11 +205,11 @@ child_id=123
 steps
 
 ```bash
-kp vm kubectl drain --dad-id $dad_id --child-id $child_id
-kp vm kubectl delete node --dad-id $dad_id --child-id $child_id
-kp vm kubeadm reset --vmid $child_id
-kp vm etcd member remove --dad-id $dad_id --child-id $child_id # important
-kp vm etcd member list --vmid $dad_id # important
+kp kubectl drain --dad-id $dad_id --child-id $child_id
+kp kubectl delete node --dad-id $dad_id --child-id $child_id
+kp kubeadm reset --vmid $child_id
+kp etcd member remove --dad-id $dad_id --child-id $child_id # important
+kp etcd member list --vmid $dad_id # important
 kp vm shutdown --vmid $child_id
 kp vm delete --vmid $child_id
 ```
@@ -222,12 +237,15 @@ kp vm clone --template-id $template_id --vmid $child_id
 kp vm disk resize --vmid $child_id --diff +30G
 kp vm config update --vmid $child_id --vm-cores $vm_cores --vm-mem $vm_mem --vm-net "$vm_net" --vm-ip "$vm_ip" --vm-gateway-ip "$vm_gateway_ip" --vm-dns-servers "$vm_dns_servers" --vm-start-on-boot
 kp vm start --vmid $child_id
-kp vm agent wait --vmid $child_id
-kp vm cloudinit wait --vmid $child_id
-kp vm ssh inject-authorized-keys --vmid $child_id # optional
-kp vm kubesetup run --vmid $child_id
-kp vm userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-worker-1.30.sh
+kp qemu agent wait --vmid $child_id
+kp cloudinit wait --vmid $child_id
+kp kubesetup run --vmid $child_id
+kp userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-worker-1.30.sh
 kp worker join --dad-id $dad_id --child-id $child_id
+```
+
+```bash
+kp authkey add --vmid $child_id -u u -k "$(cat ~/.ssh/id_rsa.pub)" # optional
 ```
 
 ## delete worker node
@@ -242,8 +260,8 @@ child_id=130
 steps
 
 ```bash
-kp vm kubectl drain --dad-id $dad_id --child-id $child_id
-kp vm kubectl delete node --dad-id $dad_id --child-id $child_id
+kp kubectl drain --dad-id $dad_id --child-id $child_id
+kp kubectl delete node --dad-id $dad_id --child-id $child_id
 kp vm shutdown --vmid $child_id
 kp vm delete --vmid $child_id
 ```
@@ -338,13 +356,16 @@ ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list
 ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list -w table
 ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS member list -w json
 ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS endpoint status --cluster -w table
+ETCDCTL_API=3 etcdctl $ETCDCTL_OPTS endpoint health
+
+# cleanup previous working dir
+rm -r /root/pki
+rm -r /root/etcd
 
 # backup certs
-rm -r /root/pki
 cp -r /etc/kubernetes/pki /root/
 
 # backup etcd (data loss is expected)
-rm -r /root/etcd
 cp -r /var/lib/etcd/ /root/
 
 # cleanup things
@@ -365,6 +386,7 @@ BUMP_REVISION=1000000000
 NODE_NAME=i-122 # the node name that you're trying to restore to
 NODE_IP=192.168.56.22 # the node ip that you're trying to restore to
 
+# restore data to etcd server
 etcdutl snapshot restore $ETCD_SNAPSHOT \
   --name $NODE_NAME \
   --initial-cluster $NODE_NAME=https://$NODE_IP:2380 \
@@ -404,6 +426,6 @@ kubeadm reset -f
 
 ## etcdserver timeout
 
-https://etcd.io/docs/v3.4/tuning/
+<https://etcd.io/docs/v3.4/tuning/>
 
 REASON: Mostly because of disk performance: I faced this issue when trying to evict a longhorn node, by evicting longhorn node, its storage (replicas, volume) got transfer to other node, which cause the disk io spike, I deploy the control plane vm and the worker vm on the same ssd sata, which make the evicting affect the etcd in the control plane vm. By moving the control plane vm to use other disk: mine nvme, the above issue is no longer seen. This thing will also happens if you deploying new deployment, helm, ... because the worker will pull the image which will make the dis io high again.
