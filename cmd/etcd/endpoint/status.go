@@ -50,8 +50,8 @@ var statusCmd = &cobra.Command{
 			"endpoint",
 			"status",
 			"--cluster",
-			// "-w",
-			// "table",
+			"-w",
+			"table",
 		}
 
 		fmt.Println("exec", vm.Name, command)

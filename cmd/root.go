@@ -5,7 +5,17 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/tuana9a/kp/cmd/apiserver"
+	"github.com/tuana9a/kp/cmd/authkey"
+	"github.com/tuana9a/kp/cmd/cloudinit"
+	"github.com/tuana9a/kp/cmd/etcd"
+	"github.com/tuana9a/kp/cmd/kubeadm"
+	"github.com/tuana9a/kp/cmd/kubectl"
+	"github.com/tuana9a/kp/cmd/kubesetup"
+	"github.com/tuana9a/kp/cmd/kubevip"
 	"github.com/tuana9a/kp/cmd/plane"
+	"github.com/tuana9a/kp/cmd/qemu"
+	"github.com/tuana9a/kp/cmd/userdata"
 	"github.com/tuana9a/kp/cmd/vm"
 	"github.com/tuana9a/kp/cmd/worker"
 	"github.com/tuana9a/kp/util"
@@ -26,6 +36,16 @@ func init() {
 	rootCmd.AddCommand(worker.WorkerCmd)
 	rootCmd.AddCommand(vm.VirtualMachineCmd)
 	rootCmd.AddCommand(plane.ControlPlaneCmd)
+	rootCmd.AddCommand(apiserver.ApiServerCmd)
+	rootCmd.AddCommand(authkey.AuthorizedKeyCmd)
+	rootCmd.AddCommand(cloudinit.CloudinitCmd)
+	rootCmd.AddCommand(etcd.EtcdCmd)
+	rootCmd.AddCommand(kubeadm.KubeadmCmd)
+	rootCmd.AddCommand(kubectl.KubectlCmd)
+	rootCmd.AddCommand(kubesetup.KubesetupCmd)
+	rootCmd.AddCommand(kubevip.KubevipCmd)
+	rootCmd.AddCommand(qemu.QemuCmd)
+	rootCmd.AddCommand(userdata.UserdataCmd)
 }
 
 func Execute() {

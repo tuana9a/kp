@@ -9,8 +9,8 @@ var username string
 var keyContent string
 
 var AuthorizedKeyCmd = &cobra.Command{
-	Use:     "authorized-key",
-	Aliases: []string{"authkey"},
+	Use:     "authkey",
+	Aliases: []string{"authorized-key"},
 }
 
 func init() {

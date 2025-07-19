@@ -12,4 +12,5 @@ var EndpointCmd = &cobra.Command{
 
 func init() {
 	EndpointCmd.AddCommand(statusCmd)
+	EndpointCmd.AddCommand(healthCmd)
 }

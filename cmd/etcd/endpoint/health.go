@@ -1,4 +1,4 @@
-package member
+package endpoint
 
 import (
 	"context"
@@ -9,9 +9,8 @@ import (
 	"github.com/tuana9a/kp/util"
 )
 
-var listCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
+var healthCmd = &cobra.Command{
+	Use: "health",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		configPath, _ := cmd.Root().PersistentFlags().GetString("config")
@@ -48,8 +47,9 @@ var listCmd = &cobra.Command{
 			"--cacert=/etc/kubernetes/pki/etcd/ca.crt",
 			"--cert=/etc/kubernetes/pki/apiserver-etcd-client.crt",
 			"--key=/etc/kubernetes/pki/apiserver-etcd-client.key",
-			"member",
-			"list",
+			"endpoint",
+			"health",
+			"--cluster",
 		}
 
 		fmt.Println("exec", vm.Name, command)
@@ -68,12 +68,11 @@ var listCmd = &cobra.Command{
 		if status.ExitCode != 0 {
 			fmt.Println("Exit non zero")
 			fmt.Println(status.ErrData)
-			return
 		}
 	},
 }
 
 func init() {
-	listCmd.Flags().IntVar(&vmid, "vmid", 0, "")
-	listCmd.MarkFlagRequired("vmid")
+	healthCmd.Flags().IntVar(&vmid, "vmid", 0, "")
+	healthCmd.MarkFlagRequired("vmid")
 }

@@ -112,5 +112,4 @@ func init() {
 	addFlagsCmd.MarkFlagRequired("vmid")
 	addFlagsCmd.Flags().StringVar(&flagsFile, "file", "", "file (required)")
 	addFlagsCmd.MarkFlagRequired("file")
-	ApiServerCmd.AddCommand(addFlagsCmd)
 }
