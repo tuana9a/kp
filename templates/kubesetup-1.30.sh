@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -exo pipefail
 
 # Install containerd requirements
 wget -q https://github.com/opencontainers/runc/releases/download/v1.1.13/runc.amd64 -O /opt/runc.amd64
@@ -32,9 +32,55 @@ version = 2
             SystemdCgroup = true # kube
 EOF
 
-wget -q https://raw.githubusercontent.com/containerd/containerd/main/containerd.service -O /lib/systemd/system/containerd.service
+# https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+cat << EOF > /lib/systemd/system/containerd.service
+# Copyright The containerd Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[Unit]
+Description=containerd container runtime
+Documentation=https://containerd.io
+After=network.target dbus.service
+
+[Service]
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart=/usr/local/bin/containerd
+{{range .Containerd.Envs}}Environment="{{.}}"
+{{end}}
+Type=notify
+Delegate=yes
+KillMode=process
+Restart=always
+RestartSec=5
+
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
+LimitNPROC=infinity
+LimitCORE=infinity
+
+# Comment TasksMax if your systemd version does not supports it.
+# Only systemd 226 and above support this version.
+TasksMax=infinity
+OOMScoreAdjust=-999
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
-systemctl enable --now containerd
+systemctl enable containerd
+systemctl restart containerd
 
 # Setup container runtime https://kubernetes.io/docs/setup/production-environment/container-runtimes/
 cat <<EOF | tee /etc/modules-load.d/k8s.conf
@@ -55,16 +101,18 @@ EOF
 # Apply sysctl params without reboot
 sysctl --system
 
-# K8S Prerequisite
+# k8s Prerequisites
 apt install -y gnupg2
 
-# Add the repository for K8S
 kubernetes_version="1.30"
+kubernetes_version_patch="1.30.6"
+
+# Add the repository for k8s
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/Release.key | gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$kubernetes_version/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
 
-# Install kubernetes dependencies
+# Install k8s dependencies
 apt-get update
-apt install -y kubelet='1.30.6-*' kubeadm='1.30.6-*' kubectl='1.30.6-*'
+apt install -y kubelet="$kubernetes_version_patch-*" kubeadm="$kubernetes_version_patch-*" kubectl="$kubernetes_version_patch-*"
 apt-mark hold kubelet kubeadm kubectl

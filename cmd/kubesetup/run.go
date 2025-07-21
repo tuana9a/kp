@@ -1,14 +1,18 @@
 package kubesetup
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"text/template"
 
 	"github.com/spf13/cobra"
 	"github.com/tuana9a/kp/constants"
 	"github.com/tuana9a/kp/model"
+	"github.com/tuana9a/kp/payload"
 	"github.com/tuana9a/kp/templates"
 	"github.com/tuana9a/kp/util"
+	"go.uber.org/zap"
 )
 
 var runCmd = &cobra.Command{
@@ -40,7 +44,22 @@ var runCmd = &cobra.Command{
 		}
 		vmV2 := model.CreateVirtualMachineV2(vm, *proxmoxClient)
 
-		content := templates.KubesetupTemplate
+		var buffer bytes.Buffer
+		t, err := template.New("kubesetup").Parse(templates.KubesetupTemplate)
+		if err != nil {
+			util.Log().Error("", zap.Error(err))
+		}
+		t.Execute(&buffer, payload.KubesetupTemplateInput{
+			Containerd: payload.KubesetupTemplateContainerd{
+				Envs: []string{
+					"http_proxy=http://proxy.vhost.vn:8080",                                  // TODO: variable later
+					"https_proxy=http://proxy.vhost.vn:8080",                                 // TODO: variable later
+					"no_proxy=localhost,127.0.0.1,10.244.0.0/8,192.168.0.0/16,10.233.0.0/16", // TODO: variable later
+					"NO_PROXY=localhost,127.0.0.1,10.244.0.0/8,192.168.0.0/16,10.233.0.0/16", // TODO: variable later
+				},
+			},
+		})
+		content := buffer.String()
 		fmt.Println("write kubesetup script")
 		fmt.Println(content)
 		err = vmV2.AgentFileWrite(ctx, constants.KubesetupScriptPath, content)

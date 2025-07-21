@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner
-apt install -y nfs-common
-
 # Install etcdctl https://github.com/etcd-io/etcd/releases/
 ETCD_VER=v3.5.12
 
