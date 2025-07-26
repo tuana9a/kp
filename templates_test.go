@@ -13,13 +13,11 @@ ExecStart=/usr/local/bin/containerd
 {{range .Containerd.Envs}}Environment={{.}}
 {{end}}`
 
-func TestKubesetupTemplateEmpty(t *testing.T) {
+func TestContainerdTemplateEmpty(t *testing.T) {
 	render, _ := template.New("kubesetup").Parse(tmpl)
 	var b bytes.Buffer
-	render.Execute(&b, payload.KubesetupTemplateInput{
-		Containerd: payload.KubesetupTemplateContainerd{
-			Envs: []string{},
-		},
+	render.Execute(&b, payload.ContainerdSetupTemplate{
+		Envs: []string{},
 	})
 	result := b.String()
 	expected := `[Service]
@@ -33,10 +31,8 @@ ExecStart=/usr/local/bin/containerd
 func TestKubesetupTemplateNotEmpty(t *testing.T) {
 	render, _ := template.New("kubesetup").Parse(tmpl)
 	var b bytes.Buffer
-	render.Execute(&b, payload.KubesetupTemplateInput{
-		Containerd: payload.KubesetupTemplateContainerd{
-			Envs: []string{"hello=world", "world=champion"},
-		},
+	render.Execute(&b, payload.ContainerdSetupTemplate{
+		Envs: []string{"hello=world", "world=champion"},
 	})
 	result := b.String()
 	expected := `[Service]

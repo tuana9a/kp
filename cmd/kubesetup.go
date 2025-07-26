@@ -1,4 +1,4 @@
-package kubesetup
+package cmd
 
 import (
 	"bytes"
@@ -9,14 +9,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tuana9a/kp/constants"
 	"github.com/tuana9a/kp/model"
-	"github.com/tuana9a/kp/payload"
 	"github.com/tuana9a/kp/templates"
 	"github.com/tuana9a/kp/util"
 	"go.uber.org/zap"
 )
 
-var runCmd = &cobra.Command{
-	Use: "run",
+var kubesetupCmd = &cobra.Command{
+	Use: "kubesetup",
 	Run: func(cmd *cobra.Command, args []string) {
 		verbose, _ := cmd.Root().PersistentFlags().GetBool("verbose")
 		fmt.Println("verbose: ", verbose)
@@ -49,16 +48,10 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			util.Log().Error("", zap.Error(err))
 		}
-		t.Execute(&buffer, payload.KubesetupTemplateInput{
-			Containerd: payload.KubesetupTemplateContainerd{
-				Envs: []string{
-					"http_proxy=http://proxy.vhost.vn:8080",                                  // TODO: variable later
-					"https_proxy=http://proxy.vhost.vn:8080",                                 // TODO: variable later
-					"no_proxy=localhost,127.0.0.1,10.244.0.0/8,192.168.0.0/16,10.233.0.0/16", // TODO: variable later
-					"NO_PROXY=localhost,127.0.0.1,10.244.0.0/8,192.168.0.0/16,10.233.0.0/16", // TODO: variable later
-				},
-			},
-		})
+		err = t.Execute(&buffer, map[string]string{})
+		if err != nil {
+			panic(err)
+		}
 		content := buffer.String()
 		fmt.Println("write kubesetup script")
 		fmt.Println(content)
@@ -95,7 +88,7 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
-	runCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
-	runCmd.MarkFlagRequired("vmid")
-	runCmd.Flags().IntVar(&timeoutSeconds, "timeout", 30*60, "")
+	kubesetupCmd.Flags().IntVar(&vmid, "vmid", 0, "vmid (required)")
+	kubesetupCmd.MarkFlagRequired("vmid")
+	kubesetupCmd.Flags().IntVar(&timeoutSeconds, "timeout", 30*60, "")
 }

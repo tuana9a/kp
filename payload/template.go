@@ -1,9 +1,5 @@
 package payload
 
-type KubesetupTemplateContainerd struct {
+type ContainerdSetupTemplate struct {
 	Envs []string
-}
-
-type KubesetupTemplateInput struct {
-	Containerd KubesetupTemplateContainerd
 }

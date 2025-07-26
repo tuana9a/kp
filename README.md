@@ -167,8 +167,10 @@ kp qemu agent wait --vmid $child_id
 kp cloudinit wait --vmid $child_id
 kp authkey add --vmid $child_id # optional
 
-kp kubesetup run --vmid $child_id
+kp containerd setup --vmid $child_id
+kp kubesetup --vmid $child_id
 kp userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-plane-1.30.sh
+
 kp plane join --dad-id $dad_id --child-id $child_id
 ```
 
@@ -236,11 +238,15 @@ steps
 kp vm clone --template-id $template_id --vmid $child_id
 kp vm disk resize --vmid $child_id --diff +30G
 kp vm config update --vmid $child_id --vm-cores $vm_cores --vm-mem $vm_mem --vm-net "$vm_net" --vm-ip "$vm_ip" --vm-gateway-ip "$vm_gateway_ip" --vm-dns-servers "$vm_dns_servers" --vm-start-on-boot
+
 kp vm start --vmid $child_id
 kp qemu agent wait --vmid $child_id
 kp cloudinit wait --vmid $child_id
-kp kubesetup run --vmid $child_id
+
+kp containerd setup --vmid $child_id
+kp kubesetup --vmid $child_id
 kp userdata run --vmid $child_id --vm-userdata ./examples/userdata/kube-worker-1.30.sh
+
 kp worker join --dad-id $dad_id --child-id $child_id
 ```
 
